@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Exercise from '#models/exercise'
-import { createExerciseValidator } from '#validators/exercise'
+import ExercisePolicy from '#policies/exercise_policy'
+import { createExerciseValidator, updateExerciseValidator } from '#validators/exercise'
 
 export default class ExercisesController {
   async index({ response }: HttpContext) {
@@ -17,16 +18,21 @@ export default class ExercisesController {
     return response.status(201).json(exercise)
   }
 
-  async update({ params, request, response }: HttpContext) {
-    const { id } = params
-    const exercise = await Exercise.findOrFail(id)
-    exercise.merge(request.body()).save()
+  async update({ request, response, bouncer }: HttpContext) {
+    const exercise = await Exercise.findOrFail(request.param('id'))
+    if (await bouncer.with(ExercisePolicy).denies('edit', exercise)) {
+      return response.forbidden('You are not allowed to edit this exercise')
+    }
+    const payload = await request.validateUsing(updateExerciseValidator)
+    exercise.merge(payload).save()
     return response.status(200).json(exercise)
   }
 
-  async delete({ params, response }: HttpContext) {
-    const { id } = params
-    const exercise = await Exercise.findOrFail(id)
+  async delete({ request, response, bouncer }: HttpContext) {
+    const exercise = await Exercise.findOrFail(request.param('id'))
+    if (await bouncer.with(ExercisePolicy).denies('delete', exercise)) {
+      return response.forbidden('You are not allowed to delete this exercise')
+    }
     await exercise.delete()
     return response.status(204)
   }
