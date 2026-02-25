@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Exercise from '#models/exercise'
+import { createExerciseValidator } from '#validators/exercise'
 
 export default class ExercisesController {
   async index({ response }: HttpContext) {
@@ -7,12 +8,11 @@ export default class ExercisesController {
     return response.status(200).json(exercises)
   }
 
-  async create({ request, response }: HttpContext) {
-    const { name, description, videoUrl } = request.body()
+  async create({ request, response, auth }: HttpContext) {
+    const payload = await request.validateUsing(createExerciseValidator)
     const exercise = await Exercise.create({
-      name,
-      description,
-      videoUrl,
+      ...payload,
+      createdBy: auth.user?.id,
     })
     return response.status(201).json(exercise)
   }

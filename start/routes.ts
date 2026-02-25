@@ -33,7 +33,15 @@ router
   .prefix('/users')
 
 /* ************************** Exercises Routes ************************** */
-router.get('/exercises', [ExercisesController, 'index'])
-router.post('/exercises', [ExercisesController, 'create'])
-router.patch('/exercises/:id', [ExercisesController, 'update'])
-router.delete('/exercises/:id', [ExercisesController, 'delete'])
+router
+  .group(() => {
+    router.get('/', [ExercisesController, 'index'])
+    router
+      .group(() => {
+        router.post('/', [ExercisesController, 'create'])
+        router.patch('/:id', [ExercisesController, 'update'])
+        router.delete(':id', [ExercisesController, 'delete'])
+      })
+      .use(middleware.auth({ guards: ['api'] }))
+  })
+  .prefix('/exercises')
