@@ -8,7 +8,7 @@ export default class Exercise extends BaseModel {
   declare id: number
 
   @column()
-  declare createdBy: number
+  declare createdBy: number | null
 
   @column()
   declare name: string
