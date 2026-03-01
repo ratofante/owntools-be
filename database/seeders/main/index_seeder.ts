@@ -6,14 +6,14 @@ export default class IndexSeeder extends BaseSeeder {
     /**
      * Do not run when not in a environment specified in Seeder
      */
-    if (
-      !Seeder.default.environment ||
-      (!Seeder.default.environment.includes('development') && app.inDev) ||
-      (!Seeder.default.environment.includes('testing') && app.inTest) ||
-      (!Seeder.default.environment.includes('production') && app.inProduction)
-    ) {
-      return
-    }
+    // if (
+    //   !Seeder.default.environment ||
+    //   (!Seeder.default.environment.includes('development') && app.inDev) ||
+    //   (!Seeder.default.environment.includes('testing') && app.inTest) ||
+    //   (!Seeder.default.environment.includes('production') && app.inProduction)
+    // ) {
+    //   return
+    // }
 
     await new Seeder.default(this.client).run()
   }
@@ -22,5 +22,7 @@ export default class IndexSeeder extends BaseSeeder {
     await this.seed(await import('#database/seeders/muscle_group_seeder'))
     await this.seed(await import('#database/seeders/body_zone_seeder'))
     await this.seed(await import('#database/seeders/exercise_seeder'))
+    await this.seed(await import('#database/seeders/exercise_muscle_group_seeder'))
+    await this.seed(await import('#database/seeders/exercise_body_zone_seeder'))
   }
 }

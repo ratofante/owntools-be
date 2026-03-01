@@ -16,9 +16,18 @@ export default class ExercisesController {
       createdAtSort = 'desc',
       createdBy,
     } = await request.validateUsing(allExerciseValidator)
-    const query = Exercise.query().preload('user', (userQuery) => {
-      userQuery.select('id', 'full_name', 'email')
-    })
+    const query = Exercise.query()
+      .preload('user', (userQuery) => {
+        userQuery.select('id', 'full_name', 'email')
+      })
+      .preload('bodyZones', (bodyZoneQuery) => {
+        bodyZoneQuery
+          .select('id', 'name', 'description', 'hex_color')
+          .pivotColumns(['zone_importance'])
+      })
+      .preload('muscleGroups', (muscleGroupQuery) => {
+        muscleGroupQuery.select('id', 'name', 'description').pivotColumns(['involvement_level'])
+      })
 
     /*****
      * Filters
@@ -36,7 +45,21 @@ export default class ExercisesController {
     query.orderBy('createdAt', createdAtSort)
 
     const exercises = await query.paginate(page, limit)
-    return response.status(200).json(exercises)
+
+    const data = exercises.all().map((exercise) => {
+      const json = exercise.serialize()
+      json.bodyZones = exercise.bodyZones.map((bz) => ({
+        ...bz.serialize(),
+        zone_importance: bz.$extras?.pivot_zone_importance ?? null,
+      }))
+      json.muscleGroups = exercise.muscleGroups.map((mg) => ({
+        ...mg.serialize(),
+        involvement_level: mg.$extras?.pivot_involvement_level ?? null,
+      }))
+      return json
+    })
+
+    return response.status(200).json({ data, meta: exercises.getMeta() })
   }
 
   async create({ request, response, auth }: HttpContext) {
