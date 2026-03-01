@@ -1,15 +1,14 @@
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'exercise_muscle_groups'
+  protected tableName = 'body_zones'
 
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.integer('exercise_id').unsigned().references('exercises.id')
-      table.integer('muscle_group_id').unsigned().references('muscle_groups.id')
-      table.string('involvement_level').nullable()
-      table.unique(['exercise_id', 'muscle_group_id'])
+      table.string('name').notNullable()
+      table.string('description').notNullable()
+      table.string('hex_color').notNullable()
 
       table.timestamp('created_at')
       table.timestamp('updated_at')
