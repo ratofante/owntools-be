@@ -1,11 +1,41 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Exercise from '#models/exercise'
 import ExercisePolicy from '#policies/exercise_policy'
-import { createExerciseValidator, updateExerciseValidator } from '#validators/exercise'
+import {
+  allExerciseValidator,
+  createExerciseValidator,
+  updateExerciseValidator,
+} from '#validators/exercise'
 
 export default class ExercisesController {
-  async index({ response }: HttpContext) {
-    const exercises = await Exercise.all()
+  async index({ request, response }: HttpContext) {
+    const {
+      page = 1,
+      limit = 10,
+      searchName,
+      createdAtSort = 'desc',
+      createdBy,
+    } = await request.validateUsing(allExerciseValidator)
+    const query = Exercise.query().preload('user', (userQuery) => {
+      userQuery.select('id', 'full_name', 'email')
+    })
+
+    /*****
+     * Filters
+     */
+    if (searchName) {
+      query.whereILike('name', `%${searchName}%`)
+    }
+    if (createdBy) {
+      query.where('createdBy', createdBy)
+    }
+
+    /*****
+     * Sorting
+     */
+    query.orderBy('createdAt', createdAtSort)
+
+    const exercises = await query.paginate(page, limit)
     return response.status(200).json(exercises)
   }
 
