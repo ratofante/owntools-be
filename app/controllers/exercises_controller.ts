@@ -24,9 +24,13 @@ export default class ExercisesController {
         bodyZoneQuery
           .select('id', 'name', 'description', 'hex_color')
           .pivotColumns(['zone_importance'])
+          .orderBy('zone_importance', 'asc')
       })
       .preload('muscleGroups', (muscleGroupQuery) => {
-        muscleGroupQuery.select('id', 'name', 'description').pivotColumns(['involvement_level'])
+        muscleGroupQuery
+          .select('id', 'name', 'description')
+          .pivotColumns(['involvement_level'])
+          .orderBy('involvement_level', 'asc')
       })
 
     /*****
