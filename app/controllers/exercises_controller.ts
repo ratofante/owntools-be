@@ -15,7 +15,12 @@ export default class ExercisesController {
       searchName,
       createdAtSort = 'desc',
       createdBy,
+      bodyZones,
+      muscleGroups,
     } = await request.validateUsing(allExerciseValidator)
+
+    console.log(bodyZones, muscleGroups)
+
     const query = Exercise.query()
       .preload('user', (userQuery) => {
         userQuery.select('id', 'full_name', 'email')
@@ -41,6 +46,16 @@ export default class ExercisesController {
     }
     if (createdBy) {
       query.where('createdBy', createdBy)
+    }
+    if (bodyZones?.length) {
+      query.whereHas('bodyZones', (bodyZoneQuery) => {
+        bodyZoneQuery.whereIn('body_zones.id', bodyZones)
+      })
+    }
+    if (muscleGroups?.length) {
+      query.whereHas('muscleGroups', (muscleGroupQuery) => {
+        muscleGroupQuery.whereIn('muscle_groups.id', muscleGroups)
+      })
     }
 
     /*****

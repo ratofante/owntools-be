@@ -7,6 +7,20 @@ export const allExerciseValidator = vine.compile(
     searchName: vine.string().optional(),
     createdAtSort: vine.enum(['asc', 'desc']).optional(),
     createdBy: vine.number().min(1).optional(),
+    bodyZones: vine
+      .any()
+      .transform((value) => {
+        const str = Array.isArray(value) ? value.join(',') : String(value)
+        return str.split(',').map((id) => Number(id))
+      })
+      .optional(),
+    muscleGroups: vine
+      .any()
+      .transform((value) => {
+        const str = Array.isArray(value) ? value.join(',') : String(value)
+        return str.split(',').map((id) => Number(id))
+      })
+      .optional(),
   })
 )
 
