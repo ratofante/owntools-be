@@ -11,6 +11,8 @@ import { middleware } from '#start/kernel'
 const SessionController = () => import('#controllers/session_controller')
 const UsersController = () => import('#controllers/users_controller')
 const ExercisesController = () => import('#controllers/exercises_controller')
+const BodyZonesController = () => import('#controllers/body_zones_controller')
+const MuscleGroupsController = () => import('#controllers/muscle_groups_controller')
 
 router.get('/', async () => {
   return {
@@ -45,3 +47,15 @@ router
       .use(middleware.auth({ guards: ['api'] }))
   })
   .prefix('/exercises')
+/* ************************** Body Zones Routes ************************** */
+router
+  .group(() => {
+    router.get('/', [BodyZonesController, 'index'])
+  })
+  .prefix('/body-zones')
+/* ************************** Muscle Groups Routes ************************** */
+router
+  .group(() => {
+    router.get('/', [MuscleGroupsController, 'index'])
+  })
+  .prefix('/muscle-groups')
