@@ -6,8 +6,9 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.integer('workout_block_id').unsigned().references('workout_blocks.id').unique()
-      table.enum('type', ['amrap', 'chipper']).notNullable()
+      table.integer('workout_block_id').unsigned().references('workout_blocks.id').notNullable()
+      table.unique(['workout_block_id'])
+      table.specificType('type', 'timed_set_type').notNullable()
       table.smallint('time').notNullable()
 
       table.timestamp('created_at')

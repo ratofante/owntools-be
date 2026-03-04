@@ -6,8 +6,9 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.integer('workout_block_id').unsigned().references('workout_blocks.id').unique()
-      table.integer('set_exercise_id').unsigned().references('set_exercises.id')
+      table.integer('workout_block_id').unsigned().references('workout_blocks.id').notNullable()
+      table.unique(['workout_block_id'])
+      table.integer('set_exercise_id').unsigned().references('set_exercises.id').notNullable()
       table.smallint('sets').notNullable()
       table.smallint('rest')
       table.timestamp('created_at')
