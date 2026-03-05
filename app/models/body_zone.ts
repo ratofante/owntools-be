@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
-import { BaseModel, column, hasMany } from '@adonisjs/lucid/orm'
+import type { ManyToMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, manyToMany } from '@adonisjs/lucid/orm'
 import Exercise from './exercise.js'
 
 export default class BodyZone extends BaseModel {
@@ -22,9 +22,13 @@ export default class BodyZone extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime
 
-  @hasMany(() => Exercise, {
-    foreignKey: 'bodyZoneId',
+  @manyToMany(() => Exercise, {
+    pivotTable: 'exercise_body_zones',
+    pivotForeignKey: 'body_zone_id',
+    pivotRelatedForeignKey: 'exercise_id',
     localKey: 'id',
+    relatedKey: 'id',
+    pivotColumns: ['zone_importance'],
   })
-  declare exercises: HasMany<typeof Exercise>
+  declare exercises: ManyToMany<typeof Exercise>
 }

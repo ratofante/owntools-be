@@ -1,9 +1,10 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import BodyZone from '#models/body_zone'
 import MuscleGroup from '#models/muscle_group'
+import SetExercise from '#models/set_exercise'
 
 export default class Exercise extends BaseModel {
   @column({ isPrimary: true })
@@ -21,9 +22,6 @@ export default class Exercise extends BaseModel {
   @column()
   declare videoUrl: string | null
 
-  @column()
-  declare bodyZoneId: number | null
-
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -35,6 +33,12 @@ export default class Exercise extends BaseModel {
     localKey: 'id',
   })
   declare user: BelongsTo<typeof User>
+
+  @hasMany(() => SetExercise, {
+    foreignKey: 'exerciseId',
+    localKey: 'id',
+  })
+  declare setExercises: HasMany<typeof SetExercise>
 
   @manyToMany(() => BodyZone, {
     pivotTable: 'exercise_body_zones',
