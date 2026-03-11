@@ -32,7 +32,7 @@ export default class Emom extends BaseModel {
     pivotRelatedForeignKey: 'set_exercise_id',
     localKey: 'id',
     relatedKey: 'id',
-    pivotColumns: ['position'],
+    pivotColumns: ['position', 'duration'],
   })
   declare setExercises: ManyToMany<typeof SetExercise>
 }

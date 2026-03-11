@@ -9,6 +9,10 @@ import {
 
 export default class ExercisesController {
   async index({ request, response }: HttpContext) {
+    /*
+      We could validate this using the built-in defaults for http requests
+      https://docs.adonisjs.com/guides/basics/validation#validating-different-data-sources
+    */
     const {
       page = 1,
       limit = 10,

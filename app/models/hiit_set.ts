@@ -4,17 +4,12 @@ import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import WorkoutBlock from '#models/workout_block'
 import SetExercise from '#models/set_exercise'
 
-export type HiitSetType = 'hiit' | 'tabata'
-
 export default class HiitSet extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
   @column()
   declare workoutBlockId: number
-
-  @column()
-  declare type: HiitSetType
 
   @column()
   declare rounds: number

@@ -6,7 +6,6 @@ export default class extends BaseSchema {
       `CREATE TYPE block_type AS ENUM ('straight_set', 'timed_set', 'emom', 'hiit')`
     )
     await this.db.rawQuery(`CREATE TYPE timed_set_type AS ENUM ('amrap', 'chipper')`)
-    await this.db.rawQuery(`CREATE TYPE hiit_type AS ENUM ('hiit', 'tabata')`)
   }
 
   async down() {
