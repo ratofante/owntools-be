@@ -37,7 +37,8 @@ router
 /* ************************** Exercises Routes ************************** */
 router
   .group(() => {
-    router.get('/', [ExercisesController, 'index'])
+    router.get('/', [ExercisesController, 'all'])
+    router.get('/paginated', [ExercisesController, 'paginated'])
     router
       .group(() => {
         router.post('/', [ExercisesController, 'create'])

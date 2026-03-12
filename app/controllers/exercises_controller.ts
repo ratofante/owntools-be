@@ -8,7 +8,12 @@ import {
 } from '#validators/exercise'
 
 export default class ExercisesController {
-  async index({ request, response }: HttpContext) {
+  async all({ response }: HttpContext) {
+    const exercises = await Exercise.query().orderBy('name', 'asc')
+    return response.status(200).json(exercises)
+  }
+
+  async paginated({ request, response }: HttpContext) {
     /*
       We could validate this using the built-in defaults for http requests
       https://docs.adonisjs.com/guides/basics/validation#validating-different-data-sources

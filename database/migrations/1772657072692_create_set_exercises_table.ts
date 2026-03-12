@@ -10,6 +10,7 @@ export default class extends BaseSchema {
       table.smallint('repetitions').nullable()
       table.decimal('percentage', 5, 4).nullable()
       table.decimal('target_weight', 6, 2).nullable()
+      table.enum('target_weight_unit', ['kg', 'lbs', 'cal']).nullable()
 
       table.timestamp('created_at')
       table.timestamp('updated_at')
