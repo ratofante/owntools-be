@@ -31,9 +31,6 @@ export default class ExercisesController {
     console.log(bodyZones, muscleGroups)
 
     const query = Exercise.query()
-      .preload('user', (userQuery) => {
-        userQuery.select('id', 'full_name', 'email')
-      })
       .preload('bodyZones', (bodyZoneQuery) => {
         bodyZoneQuery
           .select('id', 'name', 'description', 'hex_color')

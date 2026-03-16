@@ -2,9 +2,11 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import WorkoutBlock from '#models/workout_block'
-import SetExercise from '#models/set_exercise'
+import Set from '#models/set'
 
-export default class StraightSet extends BaseModel {
+export default class WorkoutBlockSet extends BaseModel {
+  static table = 'workout_block_sets'
+
   @column({ isPrimary: true })
   declare id: number
 
@@ -12,13 +14,10 @@ export default class StraightSet extends BaseModel {
   declare workoutBlockId: number
 
   @column()
-  declare setExerciseId: number
+  declare setId: number
 
   @column()
-  declare sets: number
-
-  @column()
-  declare rest: number | null
+  declare position: number
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -28,13 +27,11 @@ export default class StraightSet extends BaseModel {
 
   @belongsTo(() => WorkoutBlock, {
     foreignKey: 'workoutBlockId',
-    localKey: 'id',
   })
   declare workoutBlock: BelongsTo<typeof WorkoutBlock>
 
-  @belongsTo(() => SetExercise, {
-    foreignKey: 'setExerciseId',
-    localKey: 'id',
+  @belongsTo(() => Set, {
+    foreignKey: 'setId',
   })
-  declare setExercise: BelongsTo<typeof SetExercise>
+  declare set: BelongsTo<typeof Set>
 }

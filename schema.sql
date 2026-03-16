@@ -1,245 +1,229 @@
 -- =============================================================================
+-- MIGRATION: routines schema
+-- All time fields are in seconds.
+-- All weight fields are decimal(8,2) to support fractional weights (e.g. 102.5 kg)
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- EXTENSIONS
+-- -----------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+
+-- -----------------------------------------------------------------------------
 -- ENUMS
--- =============================================================================
+-- -----------------------------------------------------------------------------
+CREATE TYPE workout_block_type AS ENUM (
+  'standard',
+  'superset',
+  'circuit',
+  'amrap',
+  'emom',
+  'hiit'
+);
 
-CREATE TYPE block_type AS ENUM ('straight_set', 'timed_set', 'emom', 'hiit');
-CREATE TYPE timed_set_type AS ENUM ('amrap', 'chipper');
-CREATE TYPE hiit_type AS ENUM ('hiit', 'tabata');
-
-
--- =============================================================================
--- body_zones
--- Represents broad anatomical regions of the body (e.g. "Upper Body", "Core").
--- Each zone has a hex color for UI display purposes.
--- =============================================================================
-CREATE TABLE body_zones (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    description VARCHAR(255) NOT NULL,
-    hex_color   VARCHAR(255) NOT NULL,
-
-    created_at  TIMESTAMP,
-    updated_at  TIMESTAMP
+CREATE TYPE weight_unit AS ENUM (
+  'kg',
+  'lbs',
+  'cal'
 );
 
 
--- =============================================================================
--- muscle_groups
--- Represents specific muscles or muscle groups (e.g. "Quadriceps", "Lats").
--- =============================================================================
-CREATE TABLE muscle_groups (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    description VARCHAR(255) NOT NULL,
-
-    created_at  TIMESTAMP,
-    updated_at  TIMESTAMP
+-- -----------------------------------------------------------------------------
+-- EXERCISES
+-- Base table. Assumed to already exist in your DB — included here for
+-- completeness and FK reference.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS exercises (
+  id                SERIAL PRIMARY KEY,
+  name              VARCHAR(255)  NOT NULL,
+  description       TEXT,
+  video_url         VARCHAR(500),
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
 
--- =============================================================================
--- exercises
--- Master list of exercises (e.g. "Front Squat", "Burpee").
--- created_by is nullable to support globally seeded exercises.
--- =============================================================================
-CREATE TABLE exercises (
-    id          SERIAL PRIMARY KEY,
-    created_by  INT REFERENCES users(id) ON DELETE CASCADE,
-    name        VARCHAR(255) NOT NULL,
-    description VARCHAR(255),
-    video_url   VARCHAR(255),
+-- -----------------------------------------------------------------------------
+-- SETS
+-- A set is the atomic unit of work: one exercise, with its prescription.
+-- series, repetitions, and time fields are the "what to do".
+-- weight fields are the "how heavy".
+-- Sets are reusable — they are linked to blocks via workout_block_sets.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sets (
+  id                          SERIAL PRIMARY KEY,
 
-    created_at  TIMESTAMP,
-    updated_at  TIMESTAMP
+  exercise_id                 INTEGER REFERENCES exercises(id) ON DELETE SET NULL,
+  description                 TEXT,
+
+  -- Volume
+  series                      SMALLINT      NOT NULL DEFAULT 1 CHECK (series >= 1),
+  repetitions                 SMALLINT      CHECK (repetitions >= 0),
+
+  -- Time (seconds)
+  time_per_series             SMALLINT      CHECK (time_per_series > 0),  -- work window per series (hiit)
+  rest                        SMALLINT      CHECK (rest >= 0),             -- rest after each series (standard/hiit)
+
+  -- Intensity
+  percentage                  DECIMAL(5,2)  CHECK (percentage > 0 AND percentage <= 100),
+  target_rpe                  DECIMAL(3,1)  CHECK (target_rpe >= 1 AND target_rpe <= 10),
+
+  -- Weight targets (decimals to support fractional plates e.g. 102.5 kg)
+  target_weight_unit          weight_unit,
+  target_weight_unisex_max    DECIMAL(8,2)  CHECK (target_weight_unisex_max > 0),
+  target_weight_unisex_min    DECIMAL(8,2)  CHECK (target_weight_unisex_min > 0),
+  target_weight_man_max       DECIMAL(8,2)  CHECK (target_weight_man_max > 0),
+  target_weight_man_min       DECIMAL(8,2)  CHECK (target_weight_man_min > 0),
+  target_weight_woman_max     DECIMAL(8,2)  CHECK (target_weight_woman_max > 0),
+  target_weight_woman_min     DECIMAL(8,2)  CHECK (target_weight_woman_min > 0),
+
+  created_at                  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at                  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  -- min must never exceed max for any audience
+  CONSTRAINT chk_weight_unisex  CHECK (target_weight_unisex_min  IS NULL OR target_weight_unisex_max  IS NULL OR target_weight_unisex_min  <= target_weight_unisex_max),
+  CONSTRAINT chk_weight_man     CHECK (target_weight_man_min     IS NULL OR target_weight_man_max     IS NULL OR target_weight_man_min     <= target_weight_man_max),
+  CONSTRAINT chk_weight_woman   CHECK (target_weight_woman_min   IS NULL OR target_weight_woman_max   IS NULL OR target_weight_woman_min   <= target_weight_woman_max)
 );
 
 
--- =============================================================================
--- exercise_muscle_groups
--- Join table linking exercises to the muscle groups they engage.
--- involvement_level indicates primary vs secondary engagement (optional).
--- =============================================================================
-CREATE TABLE exercise_muscle_groups (
-    id                  SERIAL PRIMARY KEY,
-    exercise_id         INT REFERENCES exercises(id),
-    muscle_group_id     INT REFERENCES muscle_groups(id),
-    involvement_level   VARCHAR(255),
-    UNIQUE (exercise_id, muscle_group_id),
+-- -----------------------------------------------------------------------------
+-- WORKOUT BLOCKS
+-- A block is a named group of sets with a specific training modality.
+-- The type field drives validation and UI rendering logic.
+-- All time fields in seconds.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS workout_blocks (
+  id                    SERIAL PRIMARY KEY,
 
-    created_at          TIMESTAMP,
-    updated_at          TIMESTAMP
+  type                  workout_block_type  NOT NULL,
+  name                  VARCHAR(255),
+  description           TEXT,
+
+  -- Round / rep structure
+  rounds_per_workout    SMALLINT      CHECK (rounds_per_workout > 0),
+
+  -- Time (seconds)
+  workout_duration      SMALLINT      CHECK (workout_duration > 0),   -- seconds per station/round (emom)
+  time_to_complete      INTEGER       CHECK (time_to_complete > 0),   -- total block window (amrap)
+  rest_after_round      SMALLINT      CHECK (rest_after_round >= 0),  -- rest between rounds
+  rest_after_workout    SMALLINT      CHECK (rest_after_workout >= 0),-- rest after the full block
+
+  created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
 
--- =============================================================================
--- exercise_body_zones
--- Join table linking exercises to the body zones they target.
--- zone_importance indicates how central the zone is to the exercise (optional).
--- =============================================================================
-CREATE TABLE exercise_body_zones (
-    id              SERIAL PRIMARY KEY,
-    exercise_id     INT REFERENCES exercises(id),
-    body_zone_id    INT REFERENCES body_zones(id),
-    zone_importance VARCHAR(255),
-    UNIQUE (exercise_id, body_zone_id),
+-- -----------------------------------------------------------------------------
+-- WORKOUT BLOCK SETS
+-- Junction table linking sets to blocks.
+-- position defines execution order within the block.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS workout_block_sets (
+  id                SERIAL PRIMARY KEY,
 
-    created_at      TIMESTAMP,
-    updated_at      TIMESTAMP
+  workout_block_id  INTEGER       NOT NULL REFERENCES workout_blocks(id) ON DELETE CASCADE,
+  set_id            INTEGER       NOT NULL REFERENCES sets(id) ON DELETE RESTRICT,
+  position          SMALLINT      NOT NULL CHECK (position >= 1),
+
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_block_set_position UNIQUE (workout_block_id, position)
 );
 
 
--- =============================================================================
--- set_exercises
--- The atomic building block shared across all workout types.
--- Holds exercise details: reps, percentage of 1RM, and target weight.
--- All fields except exercise_id are optional to support time-based workouts
--- where reps/weight may not apply.
--- =============================================================================
-CREATE TABLE set_exercises (
-    id              SERIAL PRIMARY KEY,
-    exercise_id     INT NOT NULL REFERENCES exercises(id),
-    repetitions     SMALLINT,
-    percentage      NUMERIC(5,4),
-    target_weight   NUMERIC(6,2)
+-- -----------------------------------------------------------------------------
+-- ROUTINES
+-- A routine is an ordered collection of workout blocks.
+-- created_by is a soft reference to your users table — adjust the FK to match
+-- your actual users table name/column if needed.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS routines (
+  id            SERIAL PRIMARY KEY,
+
+  name          VARCHAR(255)  NOT NULL,
+  created_by    INTEGER,      -- FK to users table: REFERENCES users(id) ON DELETE SET NULL
+
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
 
--- =============================================================================
--- workout_blocks
--- Supertype table for all workout block types.
--- Every straight_set, timed_set, emom, and hiit_set registers here first.
--- routine_blocks references this table to keep a single, clean join point.
--- Coaches can optionally name a block (e.g. "Warmup", "Strength Block").
--- =============================================================================
-CREATE TABLE workout_blocks (
-    id          SERIAL PRIMARY KEY,
-    block_type  block_type NOT NULL,
-    name        VARCHAR(255)
+-- -----------------------------------------------------------------------------
+-- ROUTINE WORKOUT BLOCKS
+-- Junction table linking routines to workout blocks.
+-- position defines the order of blocks within the routine.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS routine_workout_blocks (
+  id                SERIAL PRIMARY KEY,
+
+  routine_id        INTEGER       NOT NULL REFERENCES routines(id) ON DELETE CASCADE,
+  workout_block_id  INTEGER       NOT NULL REFERENCES workout_blocks(id) ON DELETE RESTRICT,
+  position          SMALLINT      NOT NULL CHECK (position >= 1),
+
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_routine_block_position UNIQUE (routine_id, position)
 );
 
 
--- =============================================================================
--- straight_sets
--- A classic set/rep scheme. Points to a single set_exercise and defines
--- how many sets and how long to rest between them (in seconds).
--- =============================================================================
-CREATE TABLE straight_sets (
-    id                  SERIAL PRIMARY KEY,
-    workout_block_id    INT NOT NULL UNIQUE REFERENCES workout_blocks(id),
-    set_exercise_id     INT NOT NULL REFERENCES set_exercises(id),
-    sets                SMALLINT NOT NULL,
-    rest                SMALLINT -- seconds
-);
+-- -----------------------------------------------------------------------------
+-- INDEXES
+-- -----------------------------------------------------------------------------
+
+-- sets: most common lookup is by exercise
+CREATE INDEX idx_sets_exercise_id
+  ON sets(exercise_id);
+
+-- workout_block_sets: lookups by block (fetching all sets for a block)
+CREATE INDEX idx_workout_block_sets_block_id
+  ON workout_block_sets(workout_block_id);
+
+-- workout_block_sets: lookups by set (finding which blocks use a set)
+CREATE INDEX idx_workout_block_sets_set_id
+  ON workout_block_sets(set_id);
+
+-- routine_workout_blocks: lookups by routine (fetching all blocks for a routine)
+CREATE INDEX idx_routine_workout_blocks_routine_id
+  ON routine_workout_blocks(routine_id);
+
+-- routine_workout_blocks: lookups by block (finding which routines use a block)
+CREATE INDEX idx_routine_workout_blocks_block_id
+  ON routine_workout_blocks(workout_block_id);
 
 
--- =============================================================================
--- timed_sets
--- A workout capped by a time limit. Supports two types:
---   amrap   - complete as many rounds/reps as possible within the time.
---   chipper - complete all exercises as fast as possible (time is a target).
--- =============================================================================
-CREATE TABLE timed_sets (
-    id                  SERIAL PRIMARY KEY,
-    workout_block_id    INT NOT NULL UNIQUE REFERENCES workout_blocks(id),
-    type                timed_set_type NOT NULL,
-    time                SMALLINT NOT NULL -- seconds
-);
+-- -----------------------------------------------------------------------------
+-- UPDATED_AT TRIGGER
+-- Automatically updates the updated_at column on row modification.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
+CREATE TRIGGER trg_sets_updated_at
+  BEFORE UPDATE ON sets
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- =============================================================================
--- timed_set_exercises
--- Join table linking a timed_set to its exercises (ordered).
--- A NULL set_exercise_id represents a designated rest slot.
--- =============================================================================
-CREATE TABLE timed_set_exercises (
-    id              SERIAL PRIMARY KEY,
-    timed_set_id    INT NOT NULL REFERENCES timed_sets(id),
-    set_exercise_id INT REFERENCES set_exercises(id), -- NULL means rest
-    position        SMALLINT NOT NULL
-);
+CREATE TRIGGER trg_workout_blocks_updated_at
+  BEFORE UPDATE ON workout_blocks
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER trg_workout_block_sets_updated_at
+  BEFORE UPDATE ON workout_block_sets
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- =============================================================================
--- emoms
--- Every Minute on the Minute workout. Each interval slot defines its own
--- duration to support E2MOM (120s), 90s cycles, or mixed intervals.
--- A NULL rounds means "as long as possible".
--- =============================================================================
-CREATE TABLE emoms (
-    id                  SERIAL PRIMARY KEY,
-    workout_block_id    INT NOT NULL UNIQUE REFERENCES workout_blocks(id),
-    rounds              SMALLINT -- NULL means "as long as possible"
-);
+CREATE TRIGGER trg_routines_updated_at
+  BEFORE UPDATE ON routines
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-
--- =============================================================================
--- emom_intervals
--- Each row is one slot in the EMOM cycle (e.g. 1 min row, 1 min squats).
--- Duration defaults to 60s but can be any value to support E2MOM etc.
--- A NULL set_exercise_id represents a rest interval.
--- =============================================================================
-CREATE TABLE emom_intervals (
-    id              SERIAL PRIMARY KEY,
-    emom_id         INT NOT NULL REFERENCES emoms(id),
-    set_exercise_id INT REFERENCES set_exercises(id), -- NULL means rest
-    duration        SMALLINT NOT NULL DEFAULT 60,     -- seconds
-    position        SMALLINT NOT NULL
-);
-
-
--- =============================================================================
--- hiit_sets
--- High-Intensity Interval Training block. Supports two types:
---   hiit    - flexible work/rest ratios (e.g. 40s work / 20s rest).
---   tabata  - strict 20s work / 10s rest, 8 rounds.
--- work and rest define the interval durations in seconds.
--- =============================================================================
-CREATE TABLE hiit_sets (
-    id                  SERIAL PRIMARY KEY,
-    workout_block_id    INT NOT NULL UNIQUE REFERENCES workout_blocks(id),
-    type                hiit_type NOT NULL,
-    rounds              SMALLINT NOT NULL,
-    work                SMALLINT NOT NULL, -- seconds
-    rest                SMALLINT NOT NULL  -- seconds
-);
-
-
--- =============================================================================
--- hiit_set_exercises
--- Join table linking a hiit_set to its exercises (ordered).
--- A NULL set_exercise_id represents a rest slot in the circuit.
--- =============================================================================
-CREATE TABLE hiit_set_exercises (
-    id              SERIAL PRIMARY KEY,
-    hiit_set_id     INT NOT NULL REFERENCES hiit_sets(id),
-    set_exercise_id INT REFERENCES set_exercises(id), -- NULL means rest
-    position        SMALLINT NOT NULL
-);
-
-
--- =============================================================================
--- routines
--- A named workout routine composed of ordered workout blocks.
--- Each block can be any type: straight set, timed set, emom, or hiit.
--- =============================================================================
-CREATE TABLE routines (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    created_by  INT REFERENCES users(id),
-
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-
--- =============================================================================
--- routine_blocks
--- Join table linking a routine to its workout blocks (ordered).
--- References workout_blocks as the single entry point for all block types.
--- =============================================================================
-CREATE TABLE routine_blocks (
-    id                  SERIAL PRIMARY KEY,
-    routine_id          INT NOT NULL REFERENCES routines(id),
-    workout_block_id    INT NOT NULL REFERENCES workout_blocks(id),
-    position            SMALLINT NOT NULL
-);
+CREATE TRIGGER trg_routine_workout_blocks_updated_at
+  BEFORE UPDATE ON routine_workout_blocks
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
