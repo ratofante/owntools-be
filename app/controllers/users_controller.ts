@@ -18,7 +18,22 @@ export default class UsersController {
       password,
     })
 
-    return auth.use('api').createToken(newUser)
+    const token = await auth.use('api').createToken(newUser)
+    return {
+      user: newUser,
+      token,
+    }
+  }
+
+  async search({ request, response, auth }: HttpContext) {
+    const { email } = request.qs()
+    if (!email) {
+      return response.status(400).json({ message: 'email query param is required' })
+    }
+    const users = await User.query()
+      .where('email', 'like', `%${email}%`)
+      .whereNot('id', auth.user!.id)
+    return response.status(200).json({ users })
   }
 
   async destroy({ params, auth, response }: HttpContext) {

@@ -24,18 +24,22 @@ export const allExerciseValidator = vine.compile(
   })
 )
 
-export const createExerciseValidator = vine.compile(
+export const exerciseValidator = vine.compile(
   vine.object({
     name: vine.string().minLength(2).maxLength(50),
     description: vine.string().minLength(3).maxLength(255).nullable(),
     videoUrl: vine.string().url().nullable(),
-  })
-)
-
-export const updateExerciseValidator = vine.compile(
-  vine.object({
-    name: vine.string().minLength(2).maxLength(50).optional(),
-    description: vine.string().minLength(3).maxLength(255).nullable().optional(),
-    videoUrl: vine.string().url().nullable().optional(),
+    bodyZones: vine.array(
+      vine.object({
+        id: vine.number(),
+        zone_importance: vine.enum(['primary', 'secondary']),
+      })
+    ),
+    muscleGroups: vine.array(
+      vine.object({
+        id: vine.number(),
+        involvement_level: vine.enum(['primary', 'secondary']),
+      })
+    ),
   })
 )

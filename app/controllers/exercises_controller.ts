@@ -1,11 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Exercise from '#models/exercise'
-import ExercisePolicy from '#policies/exercise_policy'
-import {
-  allExerciseValidator,
-  createExerciseValidator,
-  updateExerciseValidator,
-} from '#validators/exercise'
+import { allExerciseValidator, exerciseValidator } from '#validators/exercise'
 
 export default class ExercisesController {
   async all({ response }: HttpContext) {
@@ -27,8 +22,6 @@ export default class ExercisesController {
       bodyZones,
       muscleGroups,
     } = await request.validateUsing(allExerciseValidator)
-
-    console.log(bodyZones, muscleGroups)
 
     const query = Exercise.query()
       .preload('bodyZones', (bodyZoneQuery) => {
@@ -87,31 +80,65 @@ export default class ExercisesController {
     return response.status(200).json({ data, meta: exercises.getMeta() })
   }
 
-  async create({ request, response, auth }: HttpContext) {
-    const payload = await request.validateUsing(createExerciseValidator)
+  async create({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(exerciseValidator)
+
     const exercise = await Exercise.create({
-      ...payload,
-      createdBy: auth.user?.id,
+      name: payload.name,
+      description: payload.description,
+      videoUrl: payload.videoUrl,
     })
+    await exercise
+      .related('bodyZones')
+      .attach(
+        Object.fromEntries(
+          payload.bodyZones.map((bz) => [bz.id, { zone_importance: bz.zone_importance }])
+        )
+      )
+    await exercise
+      .related('muscleGroups')
+      .attach(
+        Object.fromEntries(
+          payload.muscleGroups.map((mg) => [mg.id, { involvement_level: mg.involvement_level }])
+        )
+      )
+
     return response.status(201).json(exercise)
   }
 
-  async update({ request, response, bouncer }: HttpContext) {
-    const exercise = await Exercise.findOrFail(request.param('id'))
-    if (await bouncer.with(ExercisePolicy).denies('edit', exercise)) {
-      return response.forbidden('You are not allowed to edit this exercise')
-    }
-    const payload = await request.validateUsing(updateExerciseValidator)
-    exercise.merge(payload).save()
+  async update({ request, response, params }: HttpContext) {
+    const exercise = await Exercise.findOrFail(params.id)
+    const payload = await request.validateUsing(exerciseValidator)
+
+    exercise.merge({
+      name: payload.name,
+      description: payload.description,
+      videoUrl: payload.videoUrl,
+    })
+    await exercise.save()
+
+    await exercise
+      .related('bodyZones')
+      .sync(
+        Object.fromEntries(
+          payload.bodyZones.map((bz) => [bz.id, { zone_importance: bz.zone_importance }])
+        )
+      )
+
+    await exercise
+      .related('muscleGroups')
+      .sync(
+        Object.fromEntries(
+          payload.muscleGroups.map((mg) => [mg.id, { involvement_level: mg.involvement_level }])
+        )
+      )
+
     return response.status(200).json(exercise)
   }
 
-  async delete({ request, response, bouncer }: HttpContext) {
+  async delete({ request, response }: HttpContext) {
     const exercise = await Exercise.findOrFail(request.param('id'))
-    if (await bouncer.with(ExercisePolicy).denies('delete', exercise)) {
-      return response.forbidden('You are not allowed to delete this exercise')
-    }
     await exercise.delete()
-    return response.status(204)
+    response.status(200).json({ message: 'Exercise deleted successfully', data: exercise })
   }
 }

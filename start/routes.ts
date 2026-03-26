@@ -13,6 +13,8 @@ const UsersController = () => import('#controllers/users_controller')
 const ExercisesController = () => import('#controllers/exercises_controller')
 const BodyZonesController = () => import('#controllers/body_zones_controller')
 const MuscleGroupsController = () => import('#controllers/muscle_groups_controller')
+const RoutinesController = () => import('#controllers/routines_controller')
+const WalletsController = () => import('#controllers/wallets_controller')
 
 router.get('/', async () => {
   return {
@@ -29,7 +31,10 @@ router
   .group(() => {
     router.post('register', [UsersController, 'store'])
     router
-      .delete('delete/:id', [UsersController, 'destroy'])
+      .group(() => {
+        router.get('search', [UsersController, 'search'])
+        router.delete('delete/:id', [UsersController, 'destroy'])
+      })
       .use(middleware.auth({ guards: ['api'] }))
   })
   .prefix('/users')
@@ -60,3 +65,20 @@ router
     router.get('/', [MuscleGroupsController, 'index'])
   })
   .prefix('/muscle-groups')
+
+/* ************************** Routines Routes ************************** */
+router
+  .group(() => {
+    router.get('/:id', [RoutinesController, 'find'])
+  })
+  .prefix('/routines')
+
+/* ************************** Wallets Routes ************************** */
+router
+  .group(() => {
+    router.get('/', [WalletsController, 'index'])
+    router.post('/create', [WalletsController, 'create'])
+    router.get('/:id', [WalletsController, 'find'])
+  })
+  .use(middleware.auth({ guards: ['api'] }))
+  .prefix('/wallets')
