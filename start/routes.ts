@@ -15,6 +15,7 @@ const BodyZonesController = () => import('#controllers/body_zones_controller')
 const MuscleGroupsController = () => import('#controllers/muscle_groups_controller')
 const RoutinesController = () => import('#controllers/routines_controller')
 const WalletsController = () => import('#controllers/wallets_controller')
+const ExpensesController = () => import('#controllers/expenses_controller')
 
 router.get('/', async () => {
   return {
@@ -79,6 +80,13 @@ router
     router.get('/', [WalletsController, 'index'])
     router.post('/create', [WalletsController, 'create'])
     router.get('/:id', [WalletsController, 'find'])
+    router.get('/:id/balances', [WalletsController, 'balances'])
+
+    /* ── Expenses ── */
+    router.get('/:walletId/expenses', [ExpensesController, 'index'])
+    router.post('/:walletId/expenses', [ExpensesController, 'store'])
+    router.put('/:walletId/expenses/:id', [ExpensesController, 'update'])
+    router.delete('/:walletId/expenses/:id', [ExpensesController, 'destroy'])
   })
   .use(middleware.auth({ guards: ['api'] }))
   .prefix('/wallets')

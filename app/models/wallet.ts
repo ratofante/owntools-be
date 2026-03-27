@@ -1,7 +1,11 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, manyToMany } from '@adonisjs/lucid/orm'
-import type { ManyToMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
+import Expense from '#models/expense'
+
+export const SUPPORTED_CURRENCIES = ['ARS', 'USD', 'EUR', 'BRL', 'CLP', 'UYU'] as const
+export type Currency = (typeof SUPPORTED_CURRENCIES)[number]
 
 export default class Wallet extends BaseModel {
   @column({ isPrimary: true })
@@ -9,6 +13,9 @@ export default class Wallet extends BaseModel {
 
   @column()
   declare name: string
+
+  @column()
+  declare currency: Currency
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -23,4 +30,18 @@ export default class Wallet extends BaseModel {
     pivotColumns: ['role', 'status'],
   })
   declare users: ManyToMany<typeof User>
+
+  @hasMany(() => Expense)
+  declare expenses: HasMany<typeof Expense>
+
+  /**
+   * Format a cents value into a human-readable string for this wallet's currency.
+   * e.g. formatAmount(150000) → "$ 1.500,00" (ARS locale)
+   */
+  formatAmount(cents: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: this.currency,
+    }).format(cents / 100)
+  }
 }
