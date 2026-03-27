@@ -4,6 +4,7 @@ import Expense from '#models/expense'
 import ExpenseShare from '#models/expense_share'
 import UserWallet from '#models/user_wallet'
 import { splitEqually, validateCustomShares } from '#services/expense_splitter'
+// Wallet membership is enforced upstream by WalletAccessMiddleware.
 import { DateTime } from 'luxon'
 import { createExpenseValidator, updateExpenseValidator } from '#validators/expense'
 
@@ -12,18 +13,7 @@ export default class ExpensesController {
    * GET /wallets/:walletId/expenses
    * Returns all expenses for the wallet, newest first, with shares preloaded.
    */
-  async index({ params, auth, response }: HttpContext) {
-    const user = auth.getUserOrFail()
-
-    const membership = await UserWallet.query()
-      .where('wallet_id', params.walletId)
-      .where('user_id', user.id)
-      .first()
-
-    if (!membership) {
-      return response.forbidden({ message: 'Not a member of this wallet' })
-    }
-
+  async index({ params, response }: HttpContext) {
     const expenses = await Expense.query()
       .where('wallet_id', params.walletId)
       .preload('paidBy')
@@ -40,15 +30,6 @@ export default class ExpensesController {
    */
   async store({ params, request, auth, response }: HttpContext) {
     const user = auth.getUserOrFail()
-
-    const membership = await UserWallet.query()
-      .where('wallet_id', params.walletId)
-      .where('user_id', user.id)
-      .first()
-
-    if (!membership) {
-      return response.forbidden({ message: 'Not a member of this wallet' })
-    }
 
     const data = await request.validateUsing(createExpenseValidator)
 
@@ -168,20 +149,14 @@ export default class ExpensesController {
    * DELETE /wallets/:walletId/expenses/:id
    * Deletes the expense. Shares are removed automatically via CASCADE.
    */
-  async destroy({ params, auth, response }: HttpContext) {
-    const user = auth.getUserOrFail()
-
+  async destroy({ params, response }: HttpContext) {
     const expense = await Expense.query()
       .where('id', params.id)
       .where('wallet_id', params.walletId)
       .firstOrFail()
 
-    if (expense.paidByUserId !== user.id) {
-      return response.forbidden({ message: 'Only the payer can delete this expense' })
-    }
-
     await expense.delete()
 
-    return response.noContent()
+    return response.status(200).json({ message: 'Expense deleted successfully', data: expense })
   }
 }

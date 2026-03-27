@@ -2,8 +2,6 @@ import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import { createWalletValidator } from '#validators/wallet'
 import Wallet from '#models/wallet'
-import UserWallet from '#models/user_wallet'
-
 export default class WalletsController {
   async index({ response, auth }: HttpContext) {
     const wallets = await Wallet.query()
@@ -50,12 +48,7 @@ export default class WalletsController {
       })),
     })
   }
-  /**
-   * Creates a new shared wallet.
-   *
-   * @bodyParam {string} name - The wallet name.
-   * @bodyParam {number[]} userIds - IDs of the users to invite as participants.
-   */
+
   async create({ request, response, auth }: HttpContext) {
     const payload = await request.validateUsing(createWalletValidator)
 
@@ -80,23 +73,11 @@ export default class WalletsController {
    * Returns how much each member is owed or owes within the wallet.
    * Positive balance → user is owed money. Negative → user owes money.
    */
-  async balances({ params, auth, response }: HttpContext) {
-    const user = auth.getUserOrFail()
-
-    const membership = await UserWallet.query()
-      .where('wallet_id', params.id)
-      .where('user_id', user.id)
-      .where('status', 'active')
-      .first()
-
-    if (!membership) {
-      return response.forbidden({ message: 'Not a member of this wallet' })
-    }
-
+  async balances({ params, response }: HttpContext) {
     const rows = await db
       .from('expense_shares')
       .join('expenses', 'expense_shares.expense_id', 'expenses.id')
-      .where('expenses.wallet_id', params.id)
+      .where('expenses.wallet_id', params.walletId)
       .groupBy('expense_shares.user_id')
       .select('expense_shares.user_id')
       .sum('expense_shares.paid_amount_cents as total_paid')

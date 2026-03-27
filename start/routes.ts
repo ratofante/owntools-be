@@ -80,13 +80,21 @@ router
     router.get('/', [WalletsController, 'index'])
     router.post('/create', [WalletsController, 'create'])
     router.get('/:id', [WalletsController, 'find'])
-    router.get('/:id/balances', [WalletsController, 'balances'])
+    router
+      .group(() => {
+        router.get('/:walletId/balances', [WalletsController, 'balances'])
+      })
+      .use(middleware.walletAccess())
 
     /* ── Expenses ── */
-    router.get('/:walletId/expenses', [ExpensesController, 'index'])
-    router.post('/:walletId/expenses', [ExpensesController, 'store'])
-    router.put('/:walletId/expenses/:id', [ExpensesController, 'update'])
-    router.delete('/:walletId/expenses/:id', [ExpensesController, 'destroy'])
+    router
+      .group(() => {
+        router.get('/:walletId/expenses', [ExpensesController, 'index'])
+        router.post('/:walletId/expenses', [ExpensesController, 'store'])
+        router.put('/:walletId/expenses/:id', [ExpensesController, 'update'])
+        router.delete('/:walletId/expenses/:id', [ExpensesController, 'destroy'])
+      })
+      .use(middleware.walletAccess())
   })
   .use(middleware.auth({ guards: ['api'] }))
   .prefix('/wallets')
