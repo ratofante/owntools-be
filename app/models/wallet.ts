@@ -7,6 +7,9 @@ import Expense from '#models/expense'
 export const SUPPORTED_CURRENCIES = ['ARS', 'USD', 'EUR', 'BRL', 'CLP', 'UYU'] as const
 export type Currency = (typeof SUPPORTED_CURRENCIES)[number]
 
+export const WALLET_TYPES = ['shared', 'personal'] as const
+export type WalletType = (typeof WALLET_TYPES)[number]
+
 export default class Wallet extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
@@ -16,6 +19,9 @@ export default class Wallet extends BaseModel {
 
   @column()
   declare currency: Currency
+
+  @column()
+  declare walletType: WalletType
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

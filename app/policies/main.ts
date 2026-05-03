@@ -12,6 +12,4 @@
 |
 */
 
-export const policies = {
-  ExercisePolicy: () => import('#policies/exercise_policy'),
-}
+export const policies = {}

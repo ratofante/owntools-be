@@ -19,11 +19,5 @@ export default class IndexSeeder extends BaseSeeder {
   }
   async run() {
     await this.seed(await import('#database/seeders/user_seeder'))
-    await this.seed(await import('#database/seeders/muscle_group_seeder'))
-    await this.seed(await import('#database/seeders/body_zone_seeder'))
-    await this.seed(await import('#database/seeders/exercise_seeder'))
-    await this.seed(await import('#database/seeders/exercise_muscle_group_seeder'))
-    await this.seed(await import('#database/seeders/exercise_body_zone_seeder'))
-    await this.seed(await import('#database/seeders/routine-seeder'))
   }
 }

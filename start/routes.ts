@@ -10,10 +10,6 @@ import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 const SessionController = () => import('#controllers/session_controller')
 const UsersController = () => import('#controllers/users_controller')
-const ExercisesController = () => import('#controllers/exercises_controller')
-const BodyZonesController = () => import('#controllers/body_zones_controller')
-const MuscleGroupsController = () => import('#controllers/muscle_groups_controller')
-const RoutinesController = () => import('#controllers/routines_controller')
 const WalletsController = () => import('#controllers/wallets_controller')
 const ExpensesController = () => import('#controllers/expenses_controller')
 
@@ -35,44 +31,12 @@ router
       .group(() => {
         router.get('search', [UsersController, 'search'])
         router.delete('delete/:id', [UsersController, 'destroy'])
+        router.get('categories', [UsersController, 'categories'])
+        router.post('categories', [UsersController, 'createCategory'])
       })
       .use(middleware.auth({ guards: ['api'] }))
   })
   .prefix('/users')
-
-/* ************************** Exercises Routes ************************** */
-router
-  .group(() => {
-    router.get('/', [ExercisesController, 'all'])
-    router.get('/paginated', [ExercisesController, 'paginated'])
-    router
-      .group(() => {
-        router.post('/', [ExercisesController, 'create'])
-        router.patch('/:id', [ExercisesController, 'update'])
-        router.delete(':id', [ExercisesController, 'delete'])
-      })
-      .use(middleware.auth({ guards: ['api'] }))
-  })
-  .prefix('/exercises')
-/* ************************** Body Zones Routes ************************** */
-router
-  .group(() => {
-    router.get('/', [BodyZonesController, 'index'])
-  })
-  .prefix('/body-zones')
-/* ************************** Muscle Groups Routes ************************** */
-router
-  .group(() => {
-    router.get('/', [MuscleGroupsController, 'index'])
-  })
-  .prefix('/muscle-groups')
-
-/* ************************** Routines Routes ************************** */
-router
-  .group(() => {
-    router.get('/:id', [RoutinesController, 'find'])
-  })
-  .prefix('/routines')
 
 /* ************************** Wallets Routes ************************** */
 router
@@ -80,6 +44,7 @@ router
     router.get('/', [WalletsController, 'index'])
     router.post('/create', [WalletsController, 'create'])
     router.get('/:id', [WalletsController, 'find'])
+    router.post('/personal-expenses', [WalletsController, 'personalExpenses'])
     router
       .group(() => {
         router.get('/:walletId/balances', [WalletsController, 'balances'])
@@ -91,6 +56,7 @@ router
       .group(() => {
         router.get('/:walletId/expenses', [ExpensesController, 'index'])
         router.post('/:walletId/expenses', [ExpensesController, 'store'])
+        router.post('/:walletId/personal-expenses', [ExpensesController, 'addPersonalExpense'])
         router.put('/:walletId/expenses/:id', [ExpensesController, 'update'])
         router.delete('/:walletId/expenses/:id', [ExpensesController, 'destroy'])
       })

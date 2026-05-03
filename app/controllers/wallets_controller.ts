@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import { createWalletValidator } from '#validators/wallet'
 import Wallet from '#models/wallet'
+import { personalWalletValidator } from '#validators/personal_expense'
 export default class WalletsController {
   async index({ response, auth }: HttpContext) {
     const wallets = await Wallet.query()
@@ -54,6 +55,7 @@ export default class WalletsController {
 
     const wallet = await Wallet.create({
       name: payload.name,
+      walletType: payload.wallet_type,
     })
 
     const memberPivotData = Object.fromEntries(
@@ -66,6 +68,27 @@ export default class WalletsController {
     })
 
     return response.status(201).json(wallet)
+  }
+
+  async personalExpenses({ request, response }: HttpContext) {
+    const { userId } = await request.validateUsing(personalWalletValidator)
+
+    const wallet = await Wallet.query()
+      .preload('expenses', (expenseQuery) => {
+        expenseQuery.preload('category')
+      })
+      .whereHas('users', (query) => {
+        query.where('user_wallets.user_id', userId)
+      })
+      .where('wallet_type', 'personal')
+      .where('name', 'Gastos Personales')
+      .first()
+
+    if (!wallet) {
+      return response.status(404).json({ message: 'Wallet not found' })
+    }
+
+    return response.status(200).json(wallet)
   }
 
   /**

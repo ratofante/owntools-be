@@ -23,13 +23,16 @@ export default class extends BaseSchema {
         .inTable('users')
         .onDelete('RESTRICT')
 
-      table.string('description', 255).notNullable()
+      table.string('name', 255).notNullable()
+      table.string('description', 255)
 
       // Amount in cents (e.g. ARS 1500.00 → 150000)
       table.integer('amount_cents').unsigned().notNullable()
 
-      // 'equal' | 'custom'
-      table.enu('split_type', ['equal', 'custom']).notNullable().defaultTo('equal')
+      table.boolean('is_shared').notNullable().defaultTo(false)
+
+      // 'equal' | 'custom' — only relevant when is_shared is true
+      table.enu('split_type', ['equal', 'custom']).nullable()
 
       // The date the expense occurred (not necessarily created_at)
       table.date('date').notNullable().defaultTo(this.db.rawQuery('now()').knexQuery)

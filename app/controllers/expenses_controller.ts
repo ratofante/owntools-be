@@ -7,6 +7,7 @@ import { splitEqually, validateCustomShares } from '#services/expense_splitter'
 // Wallet membership is enforced upstream by WalletAccessMiddleware.
 import { DateTime } from 'luxon'
 import { createExpenseValidator, updateExpenseValidator } from '#validators/expense'
+import { addPersonalExpenseValidator } from '#validators/personal_expense'
 
 export default class ExpensesController {
   /**
@@ -17,6 +18,7 @@ export default class ExpensesController {
     const expenses = await Expense.query()
       .where('wallet_id', params.walletId)
       .preload('paidBy')
+      .preload('category')
       .preload('shares', (q) => q.preload('user'))
       .orderBy('date', 'desc')
       .orderBy('created_at', 'desc')
@@ -33,12 +35,18 @@ export default class ExpensesController {
 
     const data = await request.validateUsing(createExpenseValidator)
 
-    const activeMembers = await UserWallet.query()
-      .where('wallet_id', params.walletId)
-      .where('status', 'active')
-      .select('user_id')
+    if (data.is_shared && !data.split_type) {
+      return response.badRequest({ message: 'split_type is required when is_shared is true' })
+    }
 
-    const memberIds = activeMembers.map((m) => m.userId)
+    let memberIds: number[] = []
+    if (data.is_shared) {
+      const activeMembers = await UserWallet.query()
+        .where('wallet_id', params.walletId)
+        .where('status', 'active')
+        .select('user_id')
+      memberIds = activeMembers.map((m) => m.userId)
+    }
 
     const expense = await db.transaction(async (trx) => {
       const newExpense = await Expense.create(
@@ -47,46 +55,66 @@ export default class ExpensesController {
           paidByUserId: user.id,
           description: data.description,
           amountCents: data.amount_cents,
-          splitType: data.split_type,
+          isShared: data.is_shared,
+          splitType: data.is_shared ? data.split_type : null,
           date: data.date ? DateTime.fromISO(data.date) : DateTime.now(),
         },
         { client: trx }
       )
 
-      let shares: { userId: number; shareAmountCents: number; paidAmountCents: number }[]
+      if (data.is_shared) {
+        let shares: { userId: number; shareAmountCents: number; paidAmountCents: number }[]
 
-      if (data.split_type === 'equal') {
-        const amounts = splitEqually(data.amount_cents, memberIds.length)
-        shares = memberIds.map((userId, i) => ({
-          userId,
-          shareAmountCents: amounts[i],
-          paidAmountCents: userId === user.id ? data.amount_cents : 0,
-        }))
-      } else {
-        if (!data.custom_shares || data.custom_shares.length === 0) {
-          throw new Error('custom_shares is required when split_type is custom')
+        if (data.split_type === 'equal') {
+          const amounts = splitEqually(data.amount_cents, memberIds.length)
+          shares = memberIds.map((userId, i) => ({
+            userId,
+            shareAmountCents: amounts[i],
+            paidAmountCents: userId === user.id ? data.amount_cents : 0,
+          }))
+        } else {
+          if (!data.custom_shares || data.custom_shares.length === 0) {
+            throw new Error('custom_shares is required when split_type is custom')
+          }
+          validateCustomShares(
+            data.amount_cents,
+            data.custom_shares.map((s) => s.share_amount_cents)
+          )
+          shares = data.custom_shares.map((s) => ({
+            userId: s.user_id,
+            shareAmountCents: s.share_amount_cents,
+            paidAmountCents: s.user_id === user.id ? data.amount_cents : 0,
+          }))
         }
-        validateCustomShares(
-          data.amount_cents,
-          data.custom_shares.map((s) => s.share_amount_cents)
-        )
-        shares = data.custom_shares.map((s) => ({
-          userId: s.user_id,
-          shareAmountCents: s.share_amount_cents,
-          paidAmountCents: s.user_id === user.id ? data.amount_cents : 0,
-        }))
-      }
 
-      await ExpenseShare.createMany(
-        shares.map((s) => ({ ...s, expenseId: newExpense.id })),
-        { client: trx }
-      )
+        await ExpenseShare.createMany(
+          shares.map((s) => ({ ...s, expenseId: newExpense.id })),
+          { client: trx }
+        )
+      }
 
       return newExpense
     })
 
     await expense.load('shares', (q) => q.preload('user'))
     await expense.load('paidBy')
+
+    return response.created(expense)
+  }
+
+  async addPersonalExpense({ params, request, auth, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const data = await request.validateUsing(addPersonalExpenseValidator)
+
+    const expense = await Expense.create({
+      walletId: Number(params.walletId),
+      paidByUserId: user.id,
+      categoryId: data.categoryId,
+      name: data.name,
+      description: data.description,
+      amountCents: data.amount_cents,
+      date: data.date ? DateTime.fromISO(data.date) : DateTime.now(),
+    })
 
     return response.created(expense)
   }
@@ -120,7 +148,7 @@ export default class ExpensesController {
       if (data.amount_cents !== undefined && data.amount_cents !== expense.amountCents) {
         expense.amountCents = data.amount_cents
 
-        if (expense.splitType === 'equal') {
+        if (expense.isShared && expense.splitType === 'equal') {
           const currentShares = await ExpenseShare.query({ client: trx }).where(
             'expense_id',
             expense.id

@@ -5,7 +5,9 @@ export const createExpenseValidator = vine.compile(
     description: vine.string().trim().minLength(1).maxLength(255),
     // Amount in cents — frontend should convert before sending
     amount_cents: vine.number().min(1),
-    split_type: vine.enum(['equal', 'custom'] as const),
+    is_shared: vine.boolean(),
+    // Required only when is_shared is true
+    split_type: vine.enum(['equal', 'custom'] as const).optional(),
     // YYYY-MM-DD string, defaults to today if omitted
     date: vine
       .string()
