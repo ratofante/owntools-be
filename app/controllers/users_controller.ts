@@ -1,7 +1,6 @@
 import User from '#models/user'
 import type { HttpContext } from '@adonisjs/core/http'
 import Wallet from '#models/wallet'
-import Category from '#models/category'
 
 export default class UsersController {
   index(context: HttpContext) {
@@ -46,21 +45,6 @@ export default class UsersController {
       .where('email', 'like', `%${email}%`)
       .whereNot('id', auth.user!.id)
     return response.status(200).json({ users })
-  }
-
-  async categories({ auth, response }: HttpContext) {
-    const categories = await Category.query().where('userId', auth.user!.id)
-    return response.status(200).json({ categories })
-  }
-
-  async createCategory({ request, auth, response }: HttpContext) {
-    const { name, description } = request.only(['name', 'description'])
-    const category = await Category.create({
-      name,
-      description: description ?? null,
-      userId: auth.user!.id,
-    })
-    return response.status(201).json({ category })
   }
 
   async destroy({ params, auth, response }: HttpContext) {

@@ -31,8 +31,6 @@ router
       .group(() => {
         router.get('search', [UsersController, 'search'])
         router.delete('delete/:id', [UsersController, 'destroy'])
-        router.get('categories', [UsersController, 'categories'])
-        router.post('categories', [UsersController, 'createCategory'])
       })
       .use(middleware.auth({ guards: ['api'] }))
   })
@@ -48,6 +46,14 @@ router
     router
       .group(() => {
         router.get('/:walletId/balances', [WalletsController, 'balances'])
+      })
+      .use(middleware.walletAccess())
+
+    /* ── Categories ── */
+    router
+      .group(() => {
+        router.get('/:walletId/categories', [WalletsController, 'categories'])
+        router.post('/:walletId/categories', [WalletsController, 'createCategory'])
       })
       .use(middleware.walletAccess())
 

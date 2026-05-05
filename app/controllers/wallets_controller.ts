@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import { createWalletValidator } from '#validators/wallet'
 import Wallet from '#models/wallet'
+import Category from '#models/category'
 import { personalWalletValidator } from '#validators/personal_expense'
 export default class WalletsController {
   async index({ response, auth }: HttpContext) {
@@ -96,6 +97,21 @@ export default class WalletsController {
    * Returns how much each member is owed or owes within the wallet.
    * Positive balance → user is owed money. Negative → user owes money.
    */
+  async categories({ params, response }: HttpContext) {
+    const categories = await Category.query().where('walletId', params.walletId)
+    return response.status(200).json({ categories })
+  }
+
+  async createCategory({ request, params, response }: HttpContext) {
+    const { name, description } = request.only(['name', 'description'])
+    const category = await Category.create({
+      name,
+      description: description ?? null,
+      walletId: Number(params.walletId),
+    })
+    return response.status(201).json({ category })
+  }
+
   async balances({ params, response }: HttpContext) {
     const rows = await db
       .from('expense_shares')
