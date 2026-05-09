@@ -71,8 +71,11 @@ export default class WalletsController {
     return response.status(201).json(wallet)
   }
 
-  async personalExpenses({ request, response }: HttpContext) {
-    const { userId } = await request.validateUsing(personalWalletValidator)
+  async personalExpenses({ response, auth }: HttpContext) {
+    const userId = auth.user?.id
+    if (!userId) {
+      return response.status(401).json({ message: 'Unauthorized' })
+    }
 
     const wallet = await Wallet.query()
       .preload('expenses', (expenseQuery) => {

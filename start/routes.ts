@@ -41,8 +41,9 @@ router
   .group(() => {
     router.get('/', [WalletsController, 'index'])
     router.post('/create', [WalletsController, 'create'])
+    router.get('/personal-expenses', [WalletsController, 'personalExpenses'])
+
     router.get('/:id', [WalletsController, 'find'])
-    router.post('/personal-expenses', [WalletsController, 'personalExpenses'])
     router
       .group(() => {
         router.get('/:walletId/balances', [WalletsController, 'balances'])
