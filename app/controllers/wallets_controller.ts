@@ -3,7 +3,6 @@ import db from '@adonisjs/lucid/services/db'
 import { createWalletValidator } from '#validators/wallet'
 import Wallet from '#models/wallet'
 import Category from '#models/category'
-import { personalWalletValidator } from '#validators/personal_expense'
 export default class WalletsController {
   async index({ response, auth }: HttpContext) {
     const wallets = await Wallet.query()
@@ -79,7 +78,7 @@ export default class WalletsController {
 
     const wallet = await Wallet.query()
       .preload('expenses', (expenseQuery) => {
-        expenseQuery.preload('category')
+        expenseQuery.orderBy('created_at', 'desc').preload('category')
       })
       .whereHas('users', (query) => {
         query.where('user_wallets.user_id', userId)

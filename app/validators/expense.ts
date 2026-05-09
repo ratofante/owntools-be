@@ -35,3 +35,17 @@ export const updateExpenseValidator = vine.compile(
       .optional(),
   })
 )
+
+/** Partial update — each field optional; caller must enforce at least one patch key present. */
+export const patchExpenseValidator = vine.compile(
+  vine.object({
+    description: vine.string().trim().minLength(1).maxLength(255).optional(),
+    amount_cents: vine.number().min(1).optional(),
+    date: vine
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    name: vine.string().trim().minLength(2).maxLength(255).optional(),
+    categoryId: vine.number().min(1).nullable().optional(),
+  })
+)

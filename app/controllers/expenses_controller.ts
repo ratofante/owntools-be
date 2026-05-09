@@ -3,10 +3,15 @@ import db from '@adonisjs/lucid/services/db'
 import Expense from '#models/expense'
 import ExpenseShare from '#models/expense_share'
 import UserWallet from '#models/user_wallet'
+import Category from '#models/category'
 import { splitEqually, validateCustomShares } from '#services/expense_splitter'
 // Wallet membership is enforced upstream by WalletAccessMiddleware.
 import { DateTime } from 'luxon'
-import { createExpenseValidator, updateExpenseValidator } from '#validators/expense'
+import {
+  createExpenseValidator,
+  patchExpenseValidator,
+  updateExpenseValidator,
+} from '#validators/expense'
 import { addPersonalExpenseValidator } from '#validators/personal_expense'
 
 export default class ExpensesController {
@@ -125,6 +130,7 @@ export default class ExpensesController {
    * If amount_cents changes on an equal split, shares are recalculated automatically.
    * To change split_type or reassign custom shares, delete and recreate the expense.
    */
+  // ------ OLD ROUTE -----------------------------------------------
   async update({ params, request, auth, response }: HttpContext) {
     const user = auth.getUserOrFail()
 
@@ -170,6 +176,110 @@ export default class ExpensesController {
     })
 
     await expense.load('shares', (q) => q.preload('user'))
+    return response.ok(expense)
+  }
+
+  /**
+   * PATCH /wallets/:walletId/expenses/:id
+   * Partial update: at least one of description, amount_cents, date, name, categoryId.
+   * Only users with an active **owner** role on the wallet may perform this update.
+   */
+  async partialUpdate({ params, request, auth, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const walletId = Number(params.walletId)
+
+    console.log('user: ', user)
+    console.log('walletId: ', walletId)
+    console.log('params: ', params)
+
+    const ownerMembership = await UserWallet.query()
+      .where('wallet_id', walletId)
+      .where('user_id', user.id)
+      .where('role', 'owner')
+      .where('status', 'active')
+      .first()
+
+    if (!ownerMembership) {
+      return response.forbidden({
+        message: 'Only an active wallet owner can update expenses with this route',
+      })
+    }
+
+    const expense = await Expense.query()
+      .where('id', params.id)
+      .where('wallet_id', walletId)
+      .first()
+
+    if (!expense) {
+      return response.notFound({ message: 'Expense not found' })
+    }
+
+    console.log('request body: ', request.body())
+
+    const data = await request.validateUsing(patchExpenseValidator)
+
+    console.log('data: ', data)
+
+    if (data.categoryId !== undefined && data.categoryId !== null) {
+      const category = await Category.query()
+        .where('id', data.categoryId)
+        .where('walletId', walletId)
+        .first()
+
+      if (!category) {
+        return response.unprocessableEntity({
+          message: 'Category does not belong to this wallet',
+        })
+      }
+    }
+
+    await db.transaction(async (trx) => {
+      expense.useTransaction(trx)
+
+      if (data.description !== undefined) {
+        expense.description = data.description
+      }
+
+      if (data.date !== undefined) {
+        expense.date = DateTime.fromISO(data.date)
+      }
+
+      if (data.name !== undefined) {
+        expense.name = data.name
+      }
+
+      if (data.categoryId !== undefined) {
+        expense.categoryId = data.categoryId
+      }
+
+      if (data.amount_cents !== undefined && data.amount_cents !== expense.amountCents) {
+        expense.amountCents = data.amount_cents
+
+        if (expense.isShared && expense.splitType === 'equal') {
+          const currentShares = await ExpenseShare.query({ client: trx }).where(
+            'expense_id',
+            expense.id
+          )
+
+          const amounts = splitEqually(data.amount_cents, currentShares.length)
+
+          for (const [i, share] of currentShares.entries()) {
+            share.shareAmountCents = amounts[i]!
+            if (share.userId === expense.paidByUserId) {
+              share.paidAmountCents = data.amount_cents
+            }
+            await share.save()
+          }
+        }
+      }
+
+      await expense.save()
+    })
+
+    await expense.load('category')
+    await expense.load('paidBy')
+    await expense.load('shares', (q) => q.preload('user'))
+
     return response.ok(expense)
   }
 
