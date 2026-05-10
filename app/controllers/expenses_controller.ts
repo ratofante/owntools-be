@@ -188,10 +188,6 @@ export default class ExpensesController {
     const user = auth.getUserOrFail()
     const walletId = Number(params.walletId)
 
-    console.log('user: ', user)
-    console.log('walletId: ', walletId)
-    console.log('params: ', params)
-
     const ownerMembership = await UserWallet.query()
       .where('wallet_id', walletId)
       .where('user_id', user.id)
@@ -214,11 +210,7 @@ export default class ExpensesController {
       return response.notFound({ message: 'Expense not found' })
     }
 
-    console.log('request body: ', request.body())
-
     const data = await request.validateUsing(patchExpenseValidator)
-
-    console.log('data: ', data)
 
     if (data.categoryId !== undefined && data.categoryId !== null) {
       const category = await Category.query()
