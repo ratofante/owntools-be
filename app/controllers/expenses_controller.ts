@@ -188,6 +188,8 @@ export default class ExpensesController {
     const user = auth.getUserOrFail()
     const walletId = Number(params.walletId)
 
+    console.log('amountCents: ', request.body().amount_cents)
+
     const ownerMembership = await UserWallet.query()
       .where('wallet_id', walletId)
       .where('user_id', user.id)
