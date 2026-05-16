@@ -99,17 +99,17 @@ export default class WalletsController {
    * Returns how much each member is owed or owes within the wallet.
    * Positive balance → user is owed money. Negative → user owes money.
    */
-  async categories({ params, response }: HttpContext) {
-    const categories = await Category.query().where('walletId', params.walletId)
+  async categories({ response, auth }: HttpContext) {
+    const categories = await Category.query().where('userId', auth.user!.id)
     return response.status(200).json({ categories })
   }
 
-  async createCategory({ request, params, response }: HttpContext) {
+  async createCategory({ request, response, auth }: HttpContext) {
     const { name, description } = request.only(['name', 'description'])
     const category = await Category.create({
       name,
       description: description ?? null,
-      walletId: Number(params.walletId),
+      userId: auth.user!.id,
     })
     return response.status(201).json({ category })
   }

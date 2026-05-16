@@ -217,12 +217,12 @@ export default class ExpensesController {
     if (data.categoryId !== undefined && data.categoryId !== null) {
       const category = await Category.query()
         .where('id', data.categoryId)
-        .where('walletId', walletId)
+        .where('userId', user.id)
         .first()
 
       if (!category) {
         return response.unprocessableEntity({
-          message: 'Category does not belong to this wallet',
+          message: 'Category does not belong to this user',
         })
       }
     }
