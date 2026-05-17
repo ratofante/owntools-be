@@ -8,7 +8,9 @@ export default class WalletsController {
     const wallets = await Wallet.query()
       .whereHas('users', (query) => {
         query.where('user_wallets.user_id', auth.user!.id)
+        query.where('user_wallets.status', 'active')
       })
+      .where('wallet_type', 'shared')
       .preload('users', (query) => {
         query.pivotColumns(['role', 'status'])
       })
@@ -86,6 +88,7 @@ export default class WalletsController {
       .preload('expenses', (expenseQuery) => {
         expenseQuery
           .orderBy('date', 'desc')
+          .orderBy('created_at', 'desc')
           .preload('category')
           .where('date', '>=', from)
           .where('date', '<=', to)
