@@ -70,15 +70,25 @@ export default class WalletsController {
     return response.status(201).json(wallet)
   }
 
-  async personalExpenses({ response, auth }: HttpContext) {
+  async personalExpenses({ request, response, auth }: HttpContext) {
     const userId = auth.user?.id
     if (!userId) {
       return response.status(401).json({ message: 'Unauthorized' })
     }
 
+    const { from, to } = request.qs()
+
+    if (!from || !to) {
+      return response.status(422).json({ message: 'from and to query params are required' })
+    }
+
     const wallet = await Wallet.query()
       .preload('expenses', (expenseQuery) => {
-        expenseQuery.orderBy('created_at', 'desc').preload('category')
+        expenseQuery
+          .orderBy('date', 'desc')
+          .preload('category')
+          .where('date', '>=', from)
+          .where('date', '<=', to)
       })
       .whereHas('users', (query) => {
         query.where('user_wallets.user_id', userId)

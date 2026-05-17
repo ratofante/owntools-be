@@ -19,5 +19,6 @@ export default class IndexSeeder extends BaseSeeder {
   }
   async run() {
     await this.seed(await import('#database/seeders/user_seeder'))
+    await this.seed(await import('#database/seeders/data_seeder'))
   }
 }
