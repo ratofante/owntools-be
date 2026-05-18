@@ -3,6 +3,7 @@ import Wallet from '#models/wallet'
 import Category from '#models/category'
 import Expense from '#models/expense'
 import ExpenseShare from '#models/expense_share'
+import CategoryExpense from '#models/category_expense'
 import Income from '#models/income'
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import { DateTime } from 'luxon'
@@ -176,37 +177,61 @@ export default class extends BaseSeeder {
     )
 
     for (const { year, month } of MONTHS) {
-      await Expense.createMany(
-        this.buildPersonalExpenses(sumo.id, sumoWallet.id, sumoCategories, year, month)
-      )
-      await Expense.createMany(
-        this.buildPersonalExpenses(cumbia.id, cumbiaWallet.id, cumbiaCategories, year, month)
-      )
+      await this.createPersonalExpenses(sumo.id, sumoWallet.id, sumoCategories, year, month)
+      await this.createPersonalExpenses(cumbia.id, cumbiaWallet.id, cumbiaCategories, year, month)
 
       await Income.createMany(this.buildIncomes(sumo.id, sumoCategories, year, month))
       await Income.createMany(this.buildIncomes(cumbia.id, cumbiaCategories, year, month))
 
-      await this.createSharedExpenses(sharedWallet.id, sumo.id, cumbia.id, year, month)
+      await this.createSharedExpenses(
+        sharedWallet.id,
+        sumo.id,
+        cumbia.id,
+        sumoCategories,
+        cumbiaCategories,
+        year,
+        month
+      )
     }
   }
 
-  private buildPersonalExpenses(
+  private async createPersonalExpenses(
     userId: number,
     walletId: number,
     categories: Category[],
     year: number,
     month: number
   ) {
-    return Array.from({ length: randInt(30, 40) }, () => ({
-      walletId,
-      paidByUserId: userId,
-      categoryId: Math.random() > 0.15 ? pick(categories).id : null,
-      name: pick(PERSONAL_EXPENSE_NAMES),
-      amountCents: randPersonalAmount(),
-      isShared: false,
-      splitType: null,
-      date: DateTime.fromObject({ year, month, day: randInt(1, 28) }),
-    }))
+    const count = randInt(30, 40)
+    const rows = Array.from({ length: count }, () => {
+      const category = Math.random() > 0.15 ? pick(categories) : null
+      return {
+        expense: {
+          walletId,
+          paidByUserId: userId,
+          name: pick(PERSONAL_EXPENSE_NAMES),
+          amountCents: randPersonalAmount(),
+          isShared: false,
+          splitType: null,
+          date: DateTime.fromObject({ year, month, day: randInt(1, 28) }),
+        },
+        categoryId: category?.id ?? null,
+      }
+    })
+
+    const expenses = await Expense.createMany(rows.map((r) => r.expense))
+
+    const categoryExpenses = rows
+      .map((r, i) =>
+        r.categoryId !== null
+          ? { expenseId: expenses[i].id, categoryId: r.categoryId, userId }
+          : null
+      )
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+
+    if (categoryExpenses.length > 0) {
+      await CategoryExpense.createMany(categoryExpenses)
+    }
   }
 
   private buildIncomes(userId: number, categories: Category[], year: number, month: number) {
@@ -223,6 +248,8 @@ export default class extends BaseSeeder {
     walletId: number,
     sumoId: number,
     cumbiaId: number,
+    sumoCategories: Category[],
+    cumbiaCategories: Category[],
     year: number,
     month: number
   ) {
@@ -273,6 +300,23 @@ export default class extends BaseSeeder {
           status: 'pending' as const,
         },
       ])
+
+      // Each user independently assigns their own category to the shared expense
+      const payerCategories = payerId === sumoId ? sumoCategories : cumbiaCategories
+      const otherCategories = otherId === sumoId ? sumoCategories : cumbiaCategories
+
+      const categoryEntries = [
+        Math.random() > 0.2
+          ? { expenseId: expense.id, categoryId: pick(payerCategories).id, userId: payerId }
+          : null,
+        Math.random() > 0.2
+          ? { expenseId: expense.id, categoryId: pick(otherCategories).id, userId: otherId }
+          : null,
+      ].filter((r): r is NonNullable<typeof r> => r !== null)
+
+      if (categoryEntries.length > 0) {
+        await CategoryExpense.createMany(categoryEntries)
+      }
     }
   }
 }

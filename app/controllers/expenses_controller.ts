@@ -4,6 +4,7 @@ import Expense from '#models/expense'
 import ExpenseShare from '#models/expense_share'
 import UserWallet from '#models/user_wallet'
 import Category from '#models/category'
+import CategoryExpense from '#models/category_expense'
 import { splitEqually, validateCustomShares } from '#services/expense_splitter'
 // Wallet membership is enforced upstream by WalletAccessMiddleware.
 import { DateTime } from 'luxon'
@@ -18,17 +19,25 @@ export default class ExpensesController {
   /**
    * GET /wallets/:walletId/expenses
    * Returns all expenses for the wallet, newest first, with shares preloaded.
+   * Category is filtered to the current user's assignment.
    */
-  async index({ params, response }: HttpContext) {
+  async index({ params, response, auth }: HttpContext) {
+    const user = auth.getUserOrFail()
+
     const expenses = await Expense.query()
       .where('wallet_id', params.walletId)
       .preload('paidBy')
-      .preload('category')
+      .preload('categoryExpenses', (q) => q.where('user_id', user.id).preload('category'))
       .preload('shares', (q) => q.preload('user'))
       .orderBy('date', 'desc')
       .orderBy('created_at', 'desc')
 
-    return response.ok(expenses)
+    return response.ok(
+      expenses.map((e) => ({
+        ...e.serialize(),
+        category: e.categoryExpenses[0]?.category ?? null,
+      }))
+    )
   }
 
   /**
@@ -114,14 +123,26 @@ export default class ExpensesController {
     const expense = await Expense.create({
       walletId: Number(params.walletId),
       paidByUserId: user.id,
-      categoryId: data.categoryId,
       name: data.name,
       description: data.description,
       amountCents: data.amount_cents,
       date: data.date ? DateTime.fromISO(data.date) : DateTime.now(),
     })
 
-    return response.created(expense)
+    if (data.categoryId) {
+      await CategoryExpense.create({
+        expenseId: expense.id,
+        categoryId: data.categoryId,
+        userId: user.id,
+      })
+    }
+
+    await expense.load('categoryExpenses', (q) => q.where('user_id', user.id).preload('category'))
+
+    return response.created({
+      ...expense.serialize(),
+      category: expense.categoryExpenses[0]?.category ?? null,
+    })
   }
 
   /**
@@ -242,8 +263,16 @@ export default class ExpensesController {
         expense.name = data.name
       }
 
-      if (data.categoryId !== undefined) {
-        expense.categoryId = data.categoryId
+      if (data.categoryId === null) {
+        await CategoryExpense.query({ client: trx })
+          .where('expense_id', expense.id)
+          .where('user_id', user.id)
+          .delete()
+      } else if (data.categoryId !== undefined) {
+        await CategoryExpense.updateOrCreate(
+          { expenseId: expense.id, userId: user.id },
+          { categoryId: data.categoryId }
+        )
       }
 
       if (data.amount_cents !== undefined && data.amount_cents !== expense.amountCents) {
@@ -270,16 +299,19 @@ export default class ExpensesController {
       await expense.save()
     })
 
-    await expense.load('category')
+    await expense.load('categoryExpenses', (q) => q.where('user_id', user.id).preload('category'))
     await expense.load('paidBy')
     await expense.load('shares', (q) => q.preload('user'))
 
-    return response.ok(expense)
+    return response.ok({
+      ...expense.serialize(),
+      category: expense.categoryExpenses[0]?.category ?? null,
+    })
   }
 
   /**
    * DELETE /wallets/:walletId/expenses/:id
-   * Deletes the expense. Shares are removed automatically via CASCADE.
+   * Deletes the expense. Shares and category assignments are removed automatically via CASCADE.
    */
   async destroy({ params, response }: HttpContext) {
     const expense = await Expense.query()

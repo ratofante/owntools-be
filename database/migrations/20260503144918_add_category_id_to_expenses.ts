@@ -1,23 +1,38 @@
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'expenses'
+  protected tableName = 'category_expenses'
 
   async up() {
-    this.schema.alterTable(this.tableName, (table) => {
+    this.schema.createTable(this.tableName, (table) => {
+      table.increments('id')
+      table
+        .integer('expense_id')
+        .unsigned()
+        .notNullable()
+        .references('id')
+        .inTable('expenses')
+        .onDelete('CASCADE')
       table
         .integer('category_id')
         .unsigned()
-        .nullable()
+        .notNullable()
         .references('id')
         .inTable('categories')
-        .onDelete('SET NULL')
+        .onDelete('CASCADE')
+      table
+        .integer('user_id')
+        .unsigned()
+        .notNullable()
+        .references('id')
+        .inTable('users')
+        .onDelete('CASCADE')
+      table.unique(['expense_id', 'user_id'])
+      table.timestamps(true)
     })
   }
 
   async down() {
-    this.schema.alterTable(this.tableName, (table) => {
-      table.dropColumn('category_id')
-    })
+    this.schema.dropTable(this.tableName)
   }
 }

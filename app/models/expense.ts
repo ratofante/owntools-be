@@ -4,7 +4,7 @@ import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Wallet from '#models/wallet'
 import User from '#models/user'
 import ExpenseShare from '#models/expense_share'
-import Category from '#models/category'
+import CategoryExpense from '#models/category_expense'
 
 export type SplitType = 'equal' | 'custom'
 
@@ -17,9 +17,6 @@ export default class Expense extends BaseModel {
 
   @column()
   declare paidByUserId: number
-
-  @column()
-  declare categoryId: number | null
 
   @column()
   declare name: string
@@ -54,6 +51,6 @@ export default class Expense extends BaseModel {
   @hasMany(() => ExpenseShare)
   declare shares: HasMany<typeof ExpenseShare>
 
-  @belongsTo(() => Category)
-  declare category: BelongsTo<typeof Category>
+  @hasMany(() => CategoryExpense, { serializeAs: null })
+  declare categoryExpenses: HasMany<typeof CategoryExpense>
 }

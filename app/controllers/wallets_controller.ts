@@ -14,6 +14,14 @@ export default class WalletsController {
       .preload('users', (query) => {
         query.pivotColumns(['role', 'status'])
       })
+      .preload('expenses', (query) => {
+        query.orderBy('date', 'desc')
+        query.orderBy('created_at', 'desc')
+        query.limit(5)
+        query.preload('categoryExpenses', (q) =>
+          q.where('user_id', auth.user!.id).preload('category')
+        )
+      })
 
     return response.status(200).json(
       wallets.map((wallet) => ({
@@ -22,6 +30,10 @@ export default class WalletsController {
           ...user.serialize(),
           role: user.$extras.pivot_role,
           status: user.$extras.pivot_status,
+        })),
+        expenses: wallet.expenses.map((expense) => ({
+          ...expense.serialize(),
+          category: expense.categoryExpenses[0]?.category ?? null,
         })),
       }))
     )
@@ -89,7 +101,7 @@ export default class WalletsController {
         expenseQuery
           .orderBy('date', 'desc')
           .orderBy('created_at', 'desc')
-          .preload('category')
+          .preload('categoryExpenses', (q) => q.where('user_id', userId).preload('category'))
           .where('date', '>=', from)
           .where('date', '<=', to)
       })
@@ -104,7 +116,13 @@ export default class WalletsController {
       return response.status(404).json({ message: 'Wallet not found' })
     }
 
-    return response.status(200).json(wallet)
+    return response.status(200).json({
+      ...wallet.serialize(),
+      expenses: wallet.expenses.map((expense) => ({
+        ...expense.serialize(),
+        category: expense.categoryExpenses[0]?.category ?? null,
+      })),
+    })
   }
 
   /**
