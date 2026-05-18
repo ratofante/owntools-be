@@ -1,16 +1,22 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
+import { DateTime } from 'luxon'
 import { createWalletValidator } from '#validators/wallet'
 import Wallet from '#models/wallet'
 import Category from '#models/category'
 export default class WalletsController {
-  async index({ response, auth }: HttpContext) {
+  async index({ request, response, auth }: HttpContext) {
+    const { from, to } = request.qs()
+    const dateFrom = from ?? DateTime.now().startOf('month').toISODate()
+    const dateTo = to ?? DateTime.now().endOf('month').toISODate()
+
     const wallets = await Wallet.query()
       .whereHas('users', (query) => {
         query.where('user_wallets.user_id', auth.user!.id)
         query.where('user_wallets.status', 'active')
       })
       .where('wallet_type', 'shared')
+      .withCount('expenses')
       .preload('users', (query) => {
         query.pivotColumns(['role', 'status'])
       })
@@ -23,9 +29,26 @@ export default class WalletsController {
         )
       })
 
+    const walletIds = wallets.map((w) => w.id)
+    const monthCounts =
+      walletIds.length > 0
+        ? await db
+            .from('expenses')
+            .whereIn('wallet_id', walletIds)
+            .where('date', '>=', dateFrom)
+            .where('date', '<=', dateTo)
+            .groupBy('wallet_id')
+            .select('wallet_id')
+            .count('* as count')
+        : []
+
+    const monthCountMap = new Map(monthCounts.map((r) => [r.wallet_id, Number(r.count)]))
+
     return response.status(200).json(
       wallets.map((wallet) => ({
         ...wallet.serialize(),
+        expensesCount: Number(wallet.$extras.expenses_count),
+        thisMonthExpensesCount: monthCountMap.get(wallet.id) ?? 0,
         users: wallet.users.map((user) => ({
           ...user.serialize(),
           role: user.$extras.pivot_role,
