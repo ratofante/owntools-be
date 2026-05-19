@@ -40,15 +40,18 @@ export default class WalletsController {
             .groupBy('wallet_id')
             .select('wallet_id')
             .count('* as count')
+            .sum('amount_cents as total_cents')
         : []
 
     const monthCountMap = new Map(monthCounts.map((r) => [r.wallet_id, Number(r.count)]))
+    const monthTotalMap = new Map(monthCounts.map((r) => [r.wallet_id, Number(r.total_cents)]))
 
     return response.status(200).json(
       wallets.map((wallet) => ({
         ...wallet.serialize(),
         expensesCount: Number(wallet.$extras.expenses_count),
         thisMonthExpensesCount: monthCountMap.get(wallet.id) ?? 0,
+        thisMonthExpensesTotalCents: monthTotalMap.get(wallet.id) ?? 0,
         users: wallet.users.map((user) => ({
           ...user.serialize(),
           role: user.$extras.pivot_role,
