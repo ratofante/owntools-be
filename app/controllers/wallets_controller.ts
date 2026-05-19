@@ -65,14 +65,28 @@ export default class WalletsController {
     )
   }
 
-  async find({ params, auth, response }: HttpContext) {
+  async find({ params, request, auth, response }: HttpContext) {
+    const { from, to } = request.qs()
+    const dateFrom = from ?? DateTime.now().startOf('month').toISODate()
+    const dateTo = to ?? DateTime.now().endOf('month').toISODate()
+
     const wallet = await Wallet.query()
       .where('id', params.id)
       .whereHas('users', (query) => {
         query.where('user_wallets.user_id', auth.user!.id)
       })
+      .withCount('expenses')
       .preload('users', (query) => {
         query.pivotColumns(['role', 'status'])
+      })
+      .preload('expenses', (query) => {
+        query.orderBy('date', 'desc')
+        query.orderBy('created_at', 'desc')
+        query.where('date', '>=', dateFrom)
+        query.where('date', '<=', dateTo)
+        query.preload('categoryExpenses', (q) =>
+          q.where('user_id', auth.user!.id).preload('category')
+        )
       })
       .first()
 
@@ -80,12 +94,27 @@ export default class WalletsController {
       return response.status(403).json({ message: 'Access denied' })
     }
 
+    const [monthStats] = await db
+      .from('expenses')
+      .where('wallet_id', wallet.id)
+      .where('date', '>=', dateFrom)
+      .where('date', '<=', dateTo)
+      .count('* as count')
+      .sum('amount_cents as total_cents')
+
     return response.status(200).json({
       ...wallet.serialize(),
+      expensesCount: Number(wallet.$extras.expenses_count),
+      thisMonthExpensesCount: Number(monthStats.count),
+      thisMonthExpensesTotalCents: Number(monthStats.total_cents ?? 0),
       users: wallet.users.map((user) => ({
         ...user.serialize(),
         role: user.$extras.pivot_role,
         status: user.$extras.pivot_status,
+      })),
+      expenses: wallet.expenses.map((expense) => ({
+        ...expense.serialize(),
+        category: expense.categoryExpenses[0]?.category ?? null,
       })),
     })
   }
