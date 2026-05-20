@@ -84,6 +84,8 @@ export default class WalletsController {
         query.orderBy('created_at', 'desc')
         query.where('date', '>=', dateFrom)
         query.where('date', '<=', dateTo)
+        query.preload('paidBy')
+        query.preload('shares', (q) => q.preload('user'))
         query.preload('categoryExpenses', (q) =>
           q.where('user_id', auth.user!.id).preload('category')
         )
