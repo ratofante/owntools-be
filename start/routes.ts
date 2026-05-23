@@ -63,9 +63,8 @@ router
       .group(() => {
         router.get('/:walletId/expenses', [ExpensesController, 'index'])
         router.post('/:walletId/expenses', [ExpensesController, 'store'])
-        router.post('/:walletId/personal-expenses', [ExpensesController, 'addPersonalExpense'])
-        router.put('/:walletId/expenses/:id', [ExpensesController, 'update'])
-        router.patch('/:walletId/expenses/:id', [ExpensesController, 'partialUpdate'])
+        router.patch('/:walletId/expenses/:id', [ExpensesController, 'patchPersonal'])
+        router.put('/:walletId/expenses/:id', [ExpensesController, 'updateShared'])
         router.delete('/:walletId/expenses/:id', [ExpensesController, 'destroy'])
       })
       .use(middleware.walletAccess())

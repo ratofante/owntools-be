@@ -21,7 +21,6 @@ export default class WalletsController {
         query.pivotColumns(['role', 'status'])
       })
       .preload('expenses', (query) => {
-        query.orderBy('date', 'desc')
         query.orderBy('created_at', 'desc')
         query.limit(5)
         query.preload('categoryExpenses', (q) =>
@@ -80,7 +79,6 @@ export default class WalletsController {
         query.pivotColumns(['role', 'status'])
       })
       .preload('expenses', (query) => {
-        query.orderBy('date', 'desc')
         query.orderBy('created_at', 'desc')
         query.where('date', '>=', dateFrom)
         query.where('date', '<=', dateTo)
@@ -156,7 +154,6 @@ export default class WalletsController {
     const wallet = await Wallet.query()
       .preload('expenses', (expenseQuery) => {
         expenseQuery
-          .orderBy('date', 'desc')
           .orderBy('created_at', 'desc')
           .preload('categoryExpenses', (q) => q.where('user_id', userId).preload('category'))
           .where('date', '>=', from)

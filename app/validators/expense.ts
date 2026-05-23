@@ -2,18 +2,16 @@ import vine from '@vinejs/vine'
 
 export const createExpenseValidator = vine.compile(
   vine.object({
-    description: vine.string().trim().minLength(1).maxLength(255),
-    // Amount in cents — frontend should convert before sending
+    name: vine.string().trim().minLength(2).maxLength(255),
+    description: vine.string().trim().maxLength(255).optional(),
     amount_cents: vine.number().min(1),
     is_shared: vine.boolean(),
-    // Required only when is_shared is true
     split_type: vine.enum(['equal', 'custom'] as const).optional(),
-    // YYYY-MM-DD string, defaults to today if omitted
     date: vine
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    // Required only when split_type === 'custom'
+    categoryId: vine.number().min(1).nullable().optional(),
     custom_shares: vine
       .array(
         vine.object({
@@ -25,21 +23,10 @@ export const createExpenseValidator = vine.compile(
   })
 )
 
-export const updateExpenseValidator = vine.compile(
-  vine.object({
-    description: vine.string().trim().minLength(1).maxLength(255).optional(),
-    amount_cents: vine.number().min(1).optional(),
-    date: vine
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
-  })
-)
-
-/** Partial update — each field optional; caller must enforce at least one patch key present. */
+/** Partial update for personal expenses only. */
 export const patchExpenseValidator = vine.compile(
   vine.object({
-    description: vine.string().trim().minLength(1).maxLength(255).optional(),
+    description: vine.string().trim().maxLength(255).optional(),
     amount_cents: vine.number().min(1).optional(),
     date: vine
       .string()
@@ -47,5 +34,25 @@ export const patchExpenseValidator = vine.compile(
       .optional(),
     name: vine.string().trim().minLength(2).maxLength(255).optional(),
     categoryId: vine.number().min(1).nullable().optional(),
+  })
+)
+
+/** Full replacement body for shared expenses (PUT). */
+export const putSharedExpenseValidator = vine.compile(
+  vine.object({
+    name: vine.string().trim().minLength(2).maxLength(255),
+    description: vine.string().trim().maxLength(255).optional(),
+    amount_cents: vine.number().min(1),
+    date: vine.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    split_type: vine.enum(['equal', 'custom'] as const),
+    categoryId: vine.number().min(1).nullable().optional(),
+    custom_shares: vine
+      .array(
+        vine.object({
+          user_id: vine.number().min(1),
+          share_amount_cents: vine.number().min(1),
+        })
+      )
+      .optional(),
   })
 )
