@@ -180,6 +180,9 @@ export default class ExpensesController {
     const user = auth.getUserOrFail()
     const walletId = Number(params.walletId)
 
+    console.log('params', params)
+    console.log('walletId', walletId)
+
     const expense = await Expense.query()
       .where('id', params.id)
       .where('wallet_id', walletId)
@@ -191,6 +194,8 @@ export default class ExpensesController {
       return response.notFound({ message: 'Expense not found' })
     }
 
+    console.log('expense')
+
     if (!expense.isShared) {
       return response.unprocessableEntity({ message: 'Use PATCH to update personal expenses' })
     }
@@ -200,6 +205,7 @@ export default class ExpensesController {
     }
 
     const data = await request.validateUsing(putSharedExpenseValidator)
+    console.log('data', data)
 
     if (data.split_type === 'custom') {
       if (!data.custom_shares || data.custom_shares.length === 0) {
@@ -231,6 +237,7 @@ export default class ExpensesController {
 
     const categoryError = await this.categoryService.validateOwnership(user.id, data.categoryId)
     if (categoryError) {
+      console.log('categoryError', categoryError)
       return response.unprocessableEntity({ message: categoryError })
     }
 
