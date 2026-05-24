@@ -22,6 +22,8 @@ export default class WalletsController {
       })
       .preload('expenses', (query) => {
         query.orderBy('created_at', 'desc')
+        query.where('date', '>=', dateFrom)
+        query.where('date', '<=', dateTo)
         query.limit(5)
         query.preload('categoryExpenses', (q) =>
           q.where('user_id', auth.user!.id).preload('category')
