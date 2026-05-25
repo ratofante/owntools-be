@@ -8,6 +8,7 @@ import ExpenseShareService from '#services/expense_share_service'
 import { DateTime } from 'luxon'
 import {
   createExpenseValidator,
+  patchExpenseCategoryValidator,
   patchExpenseValidator,
   putSharedExpenseValidator,
 } from '#validators/expense'
@@ -276,6 +277,45 @@ export default class ExpensesController {
           )
         }
       }
+    })
+
+    await expense.load('categoryExpenses', (q) => q.where('user_id', user.id).preload('category'))
+    await expense.load('paidBy')
+    await expense.load('shares', (q) => q.preload('user'))
+
+    return response.ok(this.serializeExpense(expense))
+  }
+
+  /**
+   * PATCH /wallets/:walletId/expenses/:id/category
+   * Updates the current user's category assignment on an expense.
+   */
+  async patchCategory({ params, request, auth, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const walletId = Number(params.walletId)
+
+    const expense = await Expense.query()
+      .where('id', params.id)
+      .where('wallet_id', walletId)
+      .first()
+
+    if (!expense) {
+      return response.notFound({ message: 'Expense not found' })
+    }
+
+    if (!expense.isShared && expense.paidByUserId !== user.id) {
+      return response.forbidden({ message: 'Only the payer can categorize this expense' })
+    }
+
+    const data = await request.validateUsing(patchExpenseCategoryValidator)
+
+    const categoryError = await this.categoryService.validateOwnership(user.id, data.categoryId)
+    if (categoryError) {
+      return response.unprocessableEntity({ message: categoryError })
+    }
+
+    await db.transaction(async (trx) => {
+      await this.categoryService.applyChange(trx, expense.id, user.id, data.categoryId)
     })
 
     await expense.load('categoryExpenses', (q) => q.where('user_id', user.id).preload('category'))

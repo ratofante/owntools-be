@@ -64,6 +64,7 @@ router
         router.get('/:walletId/expenses', [ExpensesController, 'index'])
         router.post('/:walletId/expenses', [ExpensesController, 'store'])
         router.patch('/:walletId/expenses/:id', [ExpensesController, 'patchPersonal'])
+        router.patch('/:walletId/expenses/:id/category', [ExpensesController, 'patchCategory'])
         router.put('/:walletId/expenses/:id', [ExpensesController, 'updateShared'])
         router.delete('/:walletId/expenses/:id', [ExpensesController, 'destroy'])
       })

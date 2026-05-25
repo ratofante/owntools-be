@@ -37,6 +37,13 @@ export const patchExpenseValidator = vine.compile(
   })
 )
 
+/** Category-only update for any wallet member. */
+export const patchExpenseCategoryValidator = vine.compile(
+  vine.object({
+    categoryId: vine.number().min(1).nullable(),
+  })
+)
+
 /** Full replacement body for shared expenses (PUT). */
 export const putSharedExpenseValidator = vine.compile(
   vine.object({
