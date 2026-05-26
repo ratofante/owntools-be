@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Category from '#models/category'
+import { createCategoryValidator } from '#validators/category'
 
 export default class CategoriesController {
   async index({ auth, response }: HttpContext) {
@@ -14,5 +15,17 @@ export default class CategoriesController {
         expenseCount: Number(category.$extras.categoryExpenses_count),
       })),
     })
+  }
+
+  async store({ auth, request, response }: HttpContext) {
+    const { name, description } = await request.validateUsing(createCategoryValidator)
+
+    const category = await Category.create({
+      name,
+      description: description ?? null,
+      userId: auth.user!.id,
+    })
+
+    return response.status(201).json({ category })
   }
 }

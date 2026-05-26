@@ -78,6 +78,7 @@ router
 router
   .group(() => {
     router.get('/', [CategoriesController, 'index'])
+    router.post('/', [CategoriesController, 'store'])
   })
   .use(middleware.auth({ guards: ['api'] }))
   .prefix('/categories')
