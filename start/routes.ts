@@ -12,6 +12,7 @@ const SessionController = () => import('#controllers/session_controller')
 const UsersController = () => import('#controllers/users_controller')
 const WalletsController = () => import('#controllers/wallets_controller')
 const ExpensesController = () => import('#controllers/expenses_controller')
+const CategoriesController = () => import('#controllers/categories_controller')
 
 router.get('/', async () => {
   return {
@@ -72,3 +73,11 @@ router
   })
   .use(middleware.auth({ guards: ['api'] }))
   .prefix('/wallets')
+
+/* ************************** Categories Routes ************************** */
+router
+  .group(() => {
+    router.get('/', [CategoriesController, 'index'])
+  })
+  .use(middleware.auth({ guards: ['api'] }))
+  .prefix('/categories')
