@@ -79,6 +79,8 @@ router
   .group(() => {
     router.get('/', [CategoriesController, 'index'])
     router.post('/', [CategoriesController, 'store'])
+    router.patch('/:id', [CategoriesController, 'update'])
+    router.delete('/:id', [CategoriesController, 'destroy'])
   })
   .use(middleware.auth({ guards: ['api'] }))
   .prefix('/categories')
