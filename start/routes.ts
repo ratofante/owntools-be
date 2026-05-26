@@ -13,6 +13,7 @@ const UsersController = () => import('#controllers/users_controller')
 const WalletsController = () => import('#controllers/wallets_controller')
 const ExpensesController = () => import('#controllers/expenses_controller')
 const CategoriesController = () => import('#controllers/categories_controller')
+const IncomesController = () => import('#controllers/incomes_controller')
 
 router.get('/', async () => {
   return {
@@ -73,6 +74,17 @@ router
   })
   .use(middleware.auth({ guards: ['api'] }))
   .prefix('/wallets')
+
+/* ************************** Incomes Routes ************************** */
+router
+  .group(() => {
+    router.get('/', [IncomesController, 'index'])
+    router.post('/', [IncomesController, 'store'])
+    router.patch('/:id', [IncomesController, 'update'])
+    router.delete('/:id', [IncomesController, 'destroy'])
+  })
+  .use(middleware.auth({ guards: ['api'] }))
+  .prefix('/incomes')
 
 /* ************************** Categories Routes ************************** */
 router
