@@ -6,17 +6,54 @@ export default class CategoriesController {
   private async findOwnedCategory(userId: number, categoryId: number) {
     return Category.query().where('id', categoryId).where('userId', userId).first()
   }
-  async index({ auth, response }: HttpContext) {
+
+  async index({ auth, request, response }: HttpContext) {
+    const userId = auth.user!.id
+    const { from, to } = request.qs()
+
+    if (!from || !to) {
+      return response.unprocessableEntity({
+        message: 'from and to query params are required',
+      })
+    }
+
     const categories = await Category.query()
-      .where('userId', auth.user!.id)
-      .withCount('categoryExpenses', (q) => q.where('user_id', auth.user!.id))
+      .where('userId', userId)
+      .preload('incomes', (query) => {
+        query
+          .where('user_id', userId)
+          .where('date', '>=', from)
+          .where('date', '<=', to)
+      })
+      .preload('categoryExpenses', (query) => {
+        query
+          .where('user_id', userId)
+          .whereHas('expense', (expenseQuery) => {
+            expenseQuery.where('date', '>=', from).where('date', '<=', to)
+          })
+          .preload('expense')
+      })
       .orderBy('name', 'asc')
 
     return response.status(200).json({
-      categories: categories.map((category) => ({
-        ...category.serialize(),
-        expenseCount: Number(category.$extras.categoryExpenses_count),
-      })),
+      categories: categories.map((category) => {
+        const expenseTotalCents = category.categoryExpenses.reduce(
+          (sum, categoryExpense) => sum + categoryExpense.expense.amountCents,
+          0
+        )
+        const incomeTotalCents = category.incomes.reduce(
+          (sum, income) => sum + income.amountCents,
+          0
+        )
+
+        return {
+          ...category.serialize(),
+          expenseCount: category.categoryExpenses.length,
+          expenseTotalCents,
+          incomeCount: category.incomes.length,
+          incomeTotalCents,
+        }
+      }),
     })
   }
 

@@ -3,6 +3,7 @@ import { BaseModel, belongsTo, column, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import CategoryExpense from '#models/category_expense'
+import Income from '#models/income'
 
 export default class Category extends BaseModel {
   @column({ isPrimary: true })
@@ -28,4 +29,7 @@ export default class Category extends BaseModel {
 
   @hasMany(() => CategoryExpense)
   declare categoryExpenses: HasMany<typeof CategoryExpense>
+
+  @hasMany(() => Income)
+  declare incomes: HasMany<typeof Income>
 }
