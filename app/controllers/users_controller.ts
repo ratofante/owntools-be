@@ -1,22 +1,27 @@
 import User from '#models/user'
 import type { HttpContext } from '@adonisjs/core/http'
 import Wallet from '#models/wallet'
+import { registerValidator } from '#validators/auth'
+
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 30 * 24 * 60 * 60,
+  path: '/',
+}
 
 export default class UsersController {
-  index() {
+  index(_context: HttpContext) {
     return {
       message: 'Users controller.',
     }
   }
 
-  async store({ request, auth }: HttpContext) {
-    const { fullName, email, password } = request.only(['fullName', 'email', 'password'])
+  async store({ request, auth, response }: HttpContext) {
+    const { fullName, email, password } = await request.validateUsing(registerValidator)
 
-    const newUser = await User.create({
-      fullName,
-      email,
-      password,
-    })
+    const newUser = await User.create({ fullName, email, password })
 
     const wallet = await Wallet.create({
       name: 'Gastos Personales',
@@ -29,10 +34,8 @@ export default class UsersController {
     })
 
     const token = await auth.use('api').createToken(newUser)
-    return {
-      user: newUser,
-      token,
-    }
+    response.cookie('access_token', token.value!.release(), COOKIE_OPTIONS)
+    return { user: newUser }
   }
 
   async search({ request, response, auth }: HttpContext) {
@@ -55,6 +58,7 @@ export default class UsersController {
       return response.abort('User not found', 404)
     }
     await auth.use('api').invalidateToken()
+    response.clearCookie('access_token', { path: '/' })
     await user.delete()
     return response.status(200).json({ message: 'User deleted successfully' })
   }
