@@ -24,6 +24,8 @@ router.get('/test', [UsersController, 'index'])
 
 router.post('/session', [SessionController, 'store'])
 router.delete('/session', [SessionController, 'destroy']).use(middleware.auth({ guards: ['api'] }))
+router.get('/session', [SessionController, 'show']).use(middleware.auth({ guards: ['api'] }))
+router.patch('/session', [SessionController, 'refresh']).use(middleware.auth({ guards: ['api'] }))
 
 /* ************************** Users Routes ************************** */
 router
