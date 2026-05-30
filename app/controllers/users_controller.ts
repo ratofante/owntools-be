@@ -3,7 +3,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Wallet from '#models/wallet'
 
 export default class UsersController {
-  index(context: HttpContext) {
+  index() {
     return {
       message: 'Users controller.',
     }
