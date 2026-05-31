@@ -8,3 +8,9 @@ export const createWalletValidator = vine.compile(
     userIds: vine.array(vine.number()).minLength(1),
   })
 )
+
+export const respondToInvitationValidator = vine.compile(
+  vine.object({
+    status: vine.enum(['active', 'rejected'] as const),
+  })
+)

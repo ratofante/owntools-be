@@ -46,6 +46,7 @@ router
     router.get('/', [WalletsController, 'index'])
     router.post('/create', [WalletsController, 'create'])
     router.get('/personal-expenses', [WalletsController, 'personalExpenses'])
+    router.patch('/:walletId/invitation', [WalletsController, 'respondToInvitation'])
 
     router.get('/:id', [WalletsController, 'find'])
     router

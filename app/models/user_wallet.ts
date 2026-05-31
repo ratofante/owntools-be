@@ -1,7 +1,7 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 
 export type WalletRole = 'owner' | 'member'
-export type WalletStatus = 'pending' | 'active' | 'inactive'
+export type WalletStatus = 'pending' | 'active' | 'inactive' | 'rejected'
 
 export default class UserWallet extends BaseModel {
   static table = 'user_wallets'

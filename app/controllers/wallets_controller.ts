@@ -1,9 +1,10 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
-import { createWalletValidator } from '#validators/wallet'
+import { createWalletValidator, respondToInvitationValidator } from '#validators/wallet'
 import Wallet from '#models/wallet'
 import Category from '#models/category'
+import UserWallet from '#models/user_wallet'
 export default class WalletsController {
   async index({ request, response, auth }: HttpContext) {
     const { from, to } = request.qs()
@@ -12,8 +13,9 @@ export default class WalletsController {
 
     const wallets = await Wallet.query()
       .whereHas('users', (query) => {
-        query.where('user_wallets.user_id', auth.user!.id)
-        query.where('user_wallets.status', 'active')
+        query
+          .where('user_wallets.user_id', auth.user!.id)
+          .whereIn('user_wallets.status', ['active', 'pending'])
       })
       .where('wallet_type', 'shared')
       .withCount('expenses')
@@ -127,6 +129,7 @@ export default class WalletsController {
     const wallet = await Wallet.create({
       name: payload.name,
       walletType: payload.wallet_type,
+      currency: 'ARS',
     })
 
     const memberPivotData = Object.fromEntries(
@@ -139,6 +142,24 @@ export default class WalletsController {
     })
 
     return response.status(201).json(wallet)
+  }
+
+  async respondToInvitation({ params, request, response, auth }: HttpContext) {
+    const { status } = await request.validateUsing(respondToInvitationValidator)
+
+    const membership = await UserWallet.query()
+      .where('wallet_id', params.walletId)
+      .where('user_id', auth.user!.id)
+      .first()
+
+    if (!membership || membership.status !== 'pending') {
+      return response.status(403).json({ message: 'No pending invitation for this wallet' })
+    }
+
+    membership.status = status
+    await membership.save()
+
+    return response.ok({ walletId: membership.walletId, status: membership.status })
   }
 
   async personalExpenses({ request, response, auth }: HttpContext) {
