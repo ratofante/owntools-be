@@ -15,8 +15,8 @@ export default class WalletAccessMiddleware {
       .where('user_id', user!.id)
       .first()
 
-    if (!membership) {
-      return ctx.response.forbidden({ message: 'Not a member of this wallet' })
+    if (!membership || membership.status !== 'active') {
+      return ctx.response.forbidden({ message: 'Not an active member of this wallet' })
     }
 
     return next()
