@@ -49,12 +49,31 @@ export default class WalletsController {
     const monthCountMap = new Map(monthCounts.map((r) => [r.wallet_id, Number(r.count)]))
     const monthTotalMap = new Map(monthCounts.map((r) => [r.wallet_id, Number(r.total_cents)]))
 
+    const monthUserShareTotals =
+      walletIds.length > 0
+        ? await db
+            .from('expense_shares')
+            .join('expenses', 'expense_shares.expense_id', 'expenses.id')
+            .whereIn('expenses.wallet_id', walletIds)
+            .where('expense_shares.user_id', auth.user!.id)
+            .where('expenses.date', '>=', dateFrom)
+            .where('expenses.date', '<=', dateTo)
+            .groupBy('expenses.wallet_id')
+            .select('expenses.wallet_id')
+            .sum('expense_shares.share_amount_cents as total_cents')
+        : []
+
+    const monthUserShareTotalMap = new Map(
+      monthUserShareTotals.map((r) => [r.wallet_id, Number(r.total_cents ?? 0)])
+    )
+
     return response.status(200).json(
       wallets.map((wallet) => ({
         ...wallet.serialize(),
         expensesCount: Number(wallet.$extras.expenses_count),
         thisMonthExpensesCount: monthCountMap.get(wallet.id) ?? 0,
         thisMonthExpensesTotalCents: monthTotalMap.get(wallet.id) ?? 0,
+        thisMonthUserShareTotalCents: monthUserShareTotalMap.get(wallet.id) ?? 0,
         users: wallet.users.map((user) => ({
           ...user.serialize(),
           role: user.$extras.pivot_role,
